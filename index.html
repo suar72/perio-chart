@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Periodontal Chart</title>
+<style id="pagesize">@page { size: A4 landscape; margin: 7mm; }</style>
+<style>
+  :root {
+    --ink: #111;
+    --line: #555;
+    --soft: #8a8a8a;
+    --na: #e6e6e6;
+    --accent: #0b5cad;
+    --warn: #c62828;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #f2f2f2; color: var(--ink);
+    font: 10px/1.25 -apple-system, "Helvetica Neue", Arial, sans-serif; }
+
+  /* ---------- screen toolbar ---------- */
+  .toolbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px;
+    align-items: center; padding: 8px 16px; background: #fff; border-bottom: 1px solid #ddd; font-size: 13px; }
+  .toolbar button, .toolbar select { font: inherit; padding: 5px 10px; border: 1px solid #bbb;
+    border-radius: 6px; background: #fff; cursor: pointer; }
+  .toolbar button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .toolbar .hint { color: #666; font-size: 12px; margin-left: auto; }
+
+  /* ---------- sheet ---------- */
+  .sheet { width: 283mm; margin: 12px auto; padding: 0; background: #fff; }
+  @media screen { .sheet { padding: 6mm; width: calc(283mm + 12mm); box-shadow: 0 1px 6px rgba(0,0,0,.15); } }
+
+  header.top { display: flex; align-items: flex-end; gap: 2mm 4mm; margin-bottom: 1.5mm; }
+  header.top h1 { font-size: 15px; margin: 0; white-space: nowrap; letter-spacing: .2px; }
+  .fields { display: grid; grid-template-columns: minmax(0,2.2fr) minmax(0,1.2fr) minmax(0,.45fr) minmax(0,.9fr) minmax(0,1.5fr); gap: 1.5mm 3mm; flex: 1 1 0; min-width: 0; }
+  .field { display: flex; align-items: flex-end; gap: 1.5mm; }
+  .field label { white-space: nowrap; font-weight: 600; }
+  .field input { flex: 1; min-width: 0; border: 0; border-bottom: 1px solid var(--line);
+    font: inherit; font-size: 11px; padding: 0 1mm; background: transparent; height: 5mm; }
+  .visit { display: flex; gap: 3mm; align-items: center; white-space: nowrap; }
+  label.ck { display: inline-flex; align-items: center; gap: 1mm; white-space: nowrap; }
+  label.ck input { margin: 0; width: 3mm; height: 3mm; }
+
+  table.chart { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  table.chart col.lbl { width: 19mm; }
+  table.chart td { border: 1px solid var(--line); padding: 0; height: 5.1mm; vertical-align: middle; }
+  table.chart td.lbl { font-weight: 600; font-size: 9px; padding: 0 1.2mm; border-left-width: 1.5px; line-height: 1.1; }
+  table.chart td.lbl small { display: block; font-weight: 400; color: #555; font-size: 7.5px; }
+  table.chart td.mid { border-left: 2px solid var(--ink); }  /* midline */
+  tr.pd td { height: 6.8mm; }
+  tr.img td { height: 13.4mm; cursor: pointer; }
+  tr.img .pic { position: relative; height: 13.4mm; }
+  tr.img svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  tr.img path { stroke: #1a1a1a; stroke-width: .9; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+  tr.img .crown { fill: #d6d6d6; }
+  tr.img .root { fill: #fff; }
+  tr.img .behind { fill: #f2f2f2; stroke: #8c8c8c; }
+  tr.img .detail { fill: none; stroke: #7a7a7a; stroke-width: .6; }
+  tr.img .guide { stroke: #a8a8a8; stroke-width: .5; stroke-dasharray: 2 2; vector-effect: non-scaling-stroke; }
+  tr.img td.missing .tooth-svg { opacity: .3; }
+  tr.teeth td { height: 5.6mm; background: #f4f4f4; text-align: center; font-weight: 800; font-size: 12px;
+    cursor: pointer; user-select: none; }
+  tr.teeth td.lbl { cursor: default; text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: .3px; }
+  tr.edge-top td { border-top-width: 1.5px; }
+  tr.edge-bot td { border-bottom-width: 1.5px; }
+
+  .boxes { display: flex; height: 100%; }
+  .boxes > * { flex: 1; min-width: 0; border-left: 1px solid var(--soft); }
+  .boxes > *:first-child { border-left: 0 !important; }
+  .boxes input { width: 100%; height: 100%; border-top: 0; border-right: 0; border-bottom: 0; padding: 0; margin: 0; text-align: center;
+    font: 700 13px/1 -apple-system, "Helvetica Neue", Arial, sans-serif; background: transparent; color: var(--ink); }
+  .boxes input:focus { outline: 2px solid var(--accent); outline-offset: -2px; background: #eef5ff; }
+  .boxes input.deep { color: var(--warn); }
+  .boxes input.vdeep { color: #fff; background: var(--warn); }
+  .na { height: 100%; background: repeating-linear-gradient(135deg, var(--na) 0 2px, #fff 2px 5px); }
+  .sub { position: relative; }
+  .sub input { border-left: 0; }
+  .sub::after { content: attr(data-s); position: absolute; top: .2mm; left: .6mm; font-size: 6.5px; color: #666; pointer-events: none; }
+
+  /* missing tooth */
+  td.missing { background: #ececec !important; }
+  td.missing .na { opacity: .4; }
+  tr.img td.missing { background: #fff !important; }
+  .jaw { position: relative; }
+  .jaw .xout { position: absolute; top: 0; bottom: 0; height: 100%; pointer-events: none; overflow: visible; }
+  .jaw .xout line { stroke: #111; stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linecap: round; }
+  td.missing input { visibility: hidden; }
+  tr.teeth td.missing { color: #999; text-decoration: line-through; }
+
+  .gap { height: 1.8mm; }
+
+  footer.bottom { display: grid; grid-template-columns: 1fr 1.35fr; gap: 4mm; margin-top: 1.8mm; }
+  .box { border: 1px solid var(--line); padding: 1.4mm 2.2mm 1.6mm; }
+  .box h3 { margin: 0; font-size: 9.5px; text-transform: uppercase; letter-spacing: .4px; }
+  .box h3.next { margin-top: 1.2mm; }
+  .count { width: 9mm; border: 0; border-bottom: 1px solid var(--line); font: inherit; font-weight: 700; text-align: center; height: 4.2mm; background: transparent; }
+  .wline { display: block; width: 100%; border: 0; border-bottom: 1px solid var(--soft); font: inherit; font-size: 10.5px;
+    height: 4.7mm; background: transparent; padding: 0 1mm; }
+  .opts { display: flex; flex-wrap: wrap; align-items: center; gap: .6mm 3.2mm; min-height: 4.8mm; font-size: 9.5px; }
+  .opts b { font-size: 9px; margin-right: -1mm; }
+  .opts .sep { width: 2mm; }
+
+  @media print {
+    html, body { background: #fff; }
+    .toolbar { display: none; }
+    .sheet { margin: 0; box-shadow: none; }
+    tr.teeth td { cursor: default; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  @media screen and (max-width: 1150px) { body { overflow-x: auto; } }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button class="primary" onclick="window.print()">Print</button>
+  <button onclick="printBlank()">Print blank</button>
+  <button onclick="clearAll()">Clear all</button>
+  <label>Numbering
+    <select id="numbering" onchange="build()">
+      <option value="fdi">FDI (11–48)</option>
+      <option value="uni">Universal (1–32)</option>
+    </select>
+  </label>
+  <label>Paper
+    <select id="paper" onchange="setPaper(this.value)">
+      <option value="A4">A4</option>
+      <option value="letter">Letter</option>
+    </select>
+  </label>
+  <span class="hint">Tap a tooth number or drawing to strike out a missing tooth. Empty boxes print blank.</span>
+</div>
+
+<div class="sheet">
+  <header class="top">
+    <h1>Periodontal Chart</h1>
+    <div class="fields">
+      <div class="field"><label>Patient</label><input></div>
+      <div class="field"><label>HN</label><input></div>
+      <div class="field"><label>Age</label><input></div>
+      <div class="field"><label>Date</label><input id="fDate"></div>
+      <div class="field"><label>Examiner</label><input id="fExaminer"></div>
+    </div>
+    <div class="visit">
+      <label class="ck"><input type="checkbox">Initial</label>
+      <label class="ck"><input type="checkbox">Re-eval</label>
+      <label class="ck"><input type="checkbox">SPT</label>
+    </div>
+  </header>
+
+  <div class="jaw"><table class="chart" id="upper"></table></div>
+  <div class="gap"></div>
+  <div class="jaw"><table class="chart" id="lower"></table></div>
+
+  <footer class="bottom">
+    <div class="box">
+      <h3>Diagnosis</h3>
+      <input class="wline">
+      <input class="wline">
+      <input class="wline">
+      <input class="wline">
+      <h3 class="next">Overall prognosis</h3>
+      <div class="opts">
+        <label class="ck"><input type="checkbox">Good</label>
+        <label class="ck"><input type="checkbox">Fair</label>
+        <label class="ck"><input type="checkbox">Poor</label>
+      </div>
+      <div class="opts" style="margin-top:.8mm">
+        <b>Teeth present</b><input class="count" id="sTeeth" readonly tabindex="-1">
+        <b>Sites PD ≥4 mm</b><input class="count" id="s4" readonly tabindex="-1">
+        <b>≥6 mm</b><input class="count" id="s6" readonly tabindex="-1">
+        <b>Furcation teeth</b><input class="count" id="sF" readonly tabindex="-1">
+      </div>
+    </div>
+    <div class="box">
+      <h3>Treatment plan</h3>
+      <div class="tx"><input class="wline"><input class="wline"><input class="wline"><input class="wline"><input class="wline"><input class="wline"><input class="wline"><input class="wline"></div>
+    </div>
+  </footer>
+</div>
+
+<script>
+const UPPER = [18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28];
+const LOWER = [48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38];
+
+const quad = t => Math.floor(t / 10);
+const unit = t => t % 10;
+const isMolar = t => unit(t) >= 6;
+const isRightSide = t => quad(t) === 1 || quad(t) === 4;
+function universal(t) {
+  const q = quad(t), u = unit(t);
+  return q === 1 ? 9 - u : q === 2 ? 8 + u : q === 3 ? 25 - u : 24 + u;
+}
+
+// [label, sublabel, kind, edge, roots, view]
+const UPPER_ROWS = [
+  ['Prognosis', '', 'prog', 'edge-top'],
+  ['Mobility', '', 'mob'],
+  ['Furcation', 'buccal', 'furc1'],
+  ['PD', 'buccal', 'pd'],
+  ['', 'buccal', 'img', '', 'up', 'b'],
+  ['Maxilla', '', 'teeth'],
+  ['', 'palatal', 'img', '', 'down', 'p'],
+  ['PD', 'palatal', 'pd'],
+  ['Furcation', 'palatal', 'furc2', 'edge-bot'],
+];
+const LOWER_ROWS = [
+  ['Furcation', 'lingual', 'furc1', 'edge-top'],
+  ['PD', 'lingual', 'pd'],
+  ['', 'lingual', 'img', '', 'up', 'l'],
+  ['Mandible', '', 'teeth'],
+  ['', 'buccal', 'img', '', 'down', 'b'],
+  ['PD', 'buccal', 'pd'],
+  ['Furcation', 'buccal', 'furc1'],
+  ['Mobility', '', 'mob'],
+  ['Prognosis', '', 'prog', 'edge-bot'],
+];
+
+const inp = kind => `<input data-k="${kind}" inputmode="${kind === 'pd' ? 'numeric' : 'text'}" maxlength="${kind === 'furc' ? 3 : 2}" autocomplete="off">`;
+
+function cellHTML(kind, t) {
+  switch (kind) {
+    case 'mob':   return `<div class="boxes">${inp('mob')}</div>`;
+    case 'prog':  return `<div class="boxes">${inp('prog')}</div>`;
+    case 'pd':    return `<div class="boxes">${inp('pd')}${inp('pd')}${inp('pd')}</div>`;
+    case 'furc1': return isMolar(t) ? `<div class="boxes">${inp('furc')}</div>` : '<div class="na"></div>';
+    case 'furc2': {
+      if (!isMolar(t)) return '<div class="na"></div>';
+      const [a, b] = isRightSide(t) ? ['DP', 'MP'] : ['MP', 'DP'];
+      return `<div class="boxes"><div class="sub" data-s="${a}">${inp('furc')}</div><div class="sub" data-s="${b}">${inp('furc')}</div></div>`;
+    }
+  }
+}
+
+/* ---------- tooth drawings ----------
+   Drawn to scale in mm: roots up, crown down, CEJ at Y0, mesial toward +x.
+   W crown width, cw cervical width, L crown length, R root length,
+   T root-trunk length (CEJ to furcation), Rp palatal root length. */
+const Y0 = 18, VB_W = 14, VB_H = 30, X_STRETCH = 1.1;
+const UP = {
+  1: { W: 8.5, cw: 7,   L: 10.5, R: 13,   t: 'inc' },
+  2: { W: 6.5, cw: 5,   L: 9,    R: 13,   t: 'inc' },
+  3: { W: 7.5, cw: 5.5, L: 10,   R: 17,   t: 'can' },
+  4: { W: 7,   cw: 5,   L: 8.5,  R: 14,   t: 'pm', bifid: true },
+  5: { W: 6.5, cw: 5,   L: 8.5,  R: 14,   t: 'pm' },
+  6: { W: 10,  cw: 8.6, L: 7.5,  R: 12,   t: 'mol', T: 4,   Rp: 13 },
+  7: { W: 9,   cw: 7.7, L: 7,    R: 11.5, t: 'mol', T: 4.5, Rp: 12 },
+  8: { W: 8.5, cw: 7.2, L: 6.5,  R: 11,   t: 'mol', T: 5,   Rp: 11 },
+};
+const LO = {
+  1: { W: 5,    cw: 3.5, L: 9,    R: 12.5, t: 'inc' },
+  2: { W: 5.5,  cw: 4,   L: 9.5,  R: 14,   t: 'inc' },
+  3: { W: 7,    cw: 5.5, L: 11,   R: 16,   t: 'can' },
+  4: { W: 7,    cw: 5,   L: 8.5,  R: 14,   t: 'pm' },
+  5: { W: 7,    cw: 5,   L: 8,    R: 14.5, t: 'pm' },
+  6: { W: 11,   cw: 9.6, L: 7.5,  R: 14,   t: 'mol', T: 3 },
+  7: { W: 10.5, cw: 9,   L: 7,    R: 13,   t: 'mol', T: 3.5 },
+  8: { W: 10,   cw: 8.5, L: 7,    R: 11,   t: 'mol', T: 4 },
+};
+const n = v => +v.toFixed(2);
+// CEJ dips toward the root mid-surface; proximal CEJ sits slightly occlusal.
+const cejClose = c => `Q0,${Y0 - 1.2} ${n(-c)},${Y0 + 0.8}Z`;
+
+function crownAnterior({ W, cw, L, t }) {
+  const c = cw / 2, w = W / 2, y = Y0, b = Y0 + L;
+  let d = `M${n(-c)},${y + 0.8} C${n(-c - 0.4 * (w - c))},${n(y + 0.3 * L)} ${n(-w)},${n(y + 0.4 * L)} ${n(-w + 0.1)},${n(y + 0.62 * L)} `;
+  if (t === 'inc') {
+    d += `C${n(-w + 0.15)},${n(y + 0.85 * L)} ${n(-w + 0.35)},${n(b)} ${n(-w + 1.1)},${n(b)} L${n(w - 0.5)},${n(b)} ` +
+         `C${n(w - 0.15)},${n(b - 0.1)} ${n(w)},${n(y + 0.88 * L)} ${n(w)},${n(y + 0.75 * L)} `;
+  } else {
+    // canine / premolar: cusp tip offset mesially, shorter mesial cusp ridge
+    const k = t === 'can' ? 0.68 : 0.8, tip = t === 'can' ? 0.35 : 0.2;
+    d += `C${n(-w + 0.15)},${n(y + (k - 0.05) * L)} ${n(-w + 0.3)},${n(y + k * L)} ${n(-w + 0.75)},${n(y + (k + 0.04) * L)} ` +
+         `L${n(tip - 0.55)},${n(b - 0.2)} Q${n(tip)},${n(b + 0.15)} ${n(tip + 0.55)},${n(b - 0.2)} ` +
+         `L${n(w - 0.65)},${n(y + (k + 0.1) * L)} Q${n(w)},${n(y + k * L)} ${n(w)},${n(y + (k - 0.1) * L)} `;
+  }
+  d += `C${n(w)},${n(y + 0.42 * L)} ${n(c + 0.35 * (w - c))},${n(y + 0.25 * L)} ${n(c)},${y + 0.8} `;
+  return d + cejClose(c);
+}
+
+// Lingual view of anteriors: marginal ridges converging on the cingulum.
+function cingulum({ W, cw, L }) {
+  const c = cw / 2, w = W / 2, b = Y0 + L;
+  return `M${n(-w + 1.2)},${n(b - 1)} Q${n(-c * 0.5)},${n(Y0 + 0.42 * L)} 0,${n(Y0 + 0.26 * L)} Q${n(c * 0.5)},${n(Y0 + 0.42 * L)} ${n(w - 1.2)},${n(b - 1)}`;
+}
+
+// Molar crown with two cusps; dTip/mTip are cusp tips [x factor, drop from occlusal plane].
+// Near-straight walls down to the marginal ridges, then low cusps: no undercut below the height of contour.
+function crownMolar({ W, cw, L }, dTip = [-0.5, 0], mTip = [0.5, 0], groove = 0.02) {
+  const c = cw / 2, w = W / 2, y = Y0, b = Y0 + L;
+  const dx = dTip[0] * w, dy = b - dTip[1], mx = mTip[0] * w, my = b - mTip[1];
+  const gx = groove * w, gy = y + 0.86 * L, hc = y + 0.5 * L, mr = y + 0.86 * L;
+  let d = `M${n(-c)},${y + 0.8} C${n(-c - 0.35 * (w - c))},${n(y + 0.28 * L)} ${n(-w)},${n(y + 0.32 * L)} ${n(-w)},${n(hc)} ` +
+          `C${n(-w)},${n(y + 0.66 * L)} ${n(-w + 0.15)},${n(mr - 0.3)} ${n(-w + 0.45)},${n(mr)} ` +
+          `C${n(-w + 0.9)},${n(dy - 0.1)} ${n(dx - 0.6)},${n(dy)} ${n(dx)},${n(dy)} ` +
+          `C${n(dx + 0.7)},${n(dy)} ${n(gx - 0.5)},${n(gy + 0.25)} ${n(gx)},${n(gy)} ` +
+          `C${n(gx + 0.5)},${n(gy + 0.25)} ${n(mx - 0.7)},${n(my)} ${n(mx)},${n(my)} ` +
+          `C${n(mx + 0.6)},${n(my)} ${n(w - 0.9)},${n(my - 0.1)} ${n(w - 0.45)},${n(mr)} ` +
+          `C${n(w - 0.15)},${n(mr - 0.3)} ${n(w)},${n(y + 0.66 * L)} ${n(w)},${n(hc)} ` +
+          `C${n(w)},${n(y + 0.32 * L)} ${n(c + 0.35 * (w - c))},${n(y + 0.28 * L)} ${n(c)},${y + 0.8} `;
+  return d + cejClose(c);
+}
+
+function rootSingle({ cw, R, bifid }, dc = -0.6) {
+  const c = cw / 2, a = Y0 - R;
+  let d = `M${n(-c)},${Y0 + 0.8} C${n(-c - 0.1)},${n(Y0 - 0.35 * R)} ${n(dc - 0.35 * c)},${n(a + 2.5)} `;
+  if (bifid) {
+    // upper first premolar: buccal and palatal roots split in the apical third
+    d += `${n(dc - 0.9)},${n(a + 0.3)} Q${n(dc - 0.4)},${n(a - 0.5)} ${n(dc - 0.1)},${n(a + 1.6)} L${n(dc)},${n(a + 3.2)} ` +
+         `L${n(dc + 0.1)},${n(a + 1.6)} Q${n(dc + 0.45)},${n(a - 0.3)} ${n(dc + 1)},${n(a + 0.6)} `;
+  } else {
+    d += `${n(dc)},${n(a)} `;
+  }
+  d += `C${n(dc + 0.35 * c + 0.4)},${n(a + 1.8)} ${n(c + 0.1)},${n(Y0 - 0.45 * R)} ${n(c)},${Y0 + 0.8} `;
+  return d + cejClose(c);
+}
+
+// Two roots (upper: MB + DB; lower: M + D) joined by a root trunk ending at the furcation.
+function rootTwo({ cw, R, T }, upper) {
+  const c = cw / 2, f = Y0 - T;
+  const aD = Y0 - R * 0.95, aM = Y0 - R;
+  const xd = -c + (upper ? 0.7 : 0.6), xm = c - (upper ? 1.4 : 1.2);   // mesial root curves distally
+  const d = `M${n(-c)},${Y0 + 0.8} C${n(-c - 0.3)},${n(Y0 - 0.4 * R)} ${n(xd - 1.1)},${n(aD + 2.5)} ${n(xd)},${n(aD)} ` +
+            `C${n(xd + 1.6)},${n(aD + 0.8)} ${n(xd + 2.6)},${n(f - 2)} -0.7,${n(f - 0.5)} Q0,${n(f + 0.3)} 0.7,${n(f - 0.5)} ` +
+            `C${n(xm - 2.6)},${n(f - 2)} ${n(xm - 1.6)},${n(aM + 0.8)} ${n(xm)},${n(aM)} ` +
+            `C${n(xm + 1)},${n(aM + 2.5)} ${n(c + 0.3)},${n(Y0 - 0.4 * R)} ${n(c)},${Y0 + 0.8} `;
+  return d + cejClose(c);
+}
+
+function rootPalatal({ cw, Rp, T }, front) {
+  const a = Y0 - Rp, c1 = cw * 0.3;
+  if (!front) {   // seen behind the buccal roots
+    const top = Y0 - T + 1.5;
+    return `M${n(-c1)},${n(top)} C${n(-c1)},${n(a + 4)} -0.9,${n(a)} 0.1,${n(a)} C0.9,${n(a)} ${n(c1)},${n(a + 4)} ${n(c1)},${n(top)}Z`;
+  }
+  const c0 = cw / 2, c2 = cw * 0.36, f = Y0 - T;
+  return `M${n(-c0)},${Y0 + 0.8} C${n(-c0)},${n(f + 1.5)} ${n(-c2)},${n(f + 0.5)} ${n(-c2)},${n(f - 1)} ` +
+         `C${n(-c2)},${n(a + 4)} -0.9,${n(a)} 0.1,${n(a)} C1,${n(a)} ${n(c2)},${n(a + 4)} ${n(c2)},${n(f - 1)} ` +
+         `C${n(c2)},${n(f + 0.5)} ${n(c0)},${n(f + 1.5)} ${n(c0)},${Y0 + 0.8} ` + cejClose(c0);
+}
+
+function toothParts(t, view) {
+  const upper = quad(t) <= 2, s = (upper ? UP : LO)[unit(t)], lingual = view !== 'b';
+  const parts = [];
+  if (s.t === 'mol') {
+    if (upper && !lingual) {             // buccal: MB + DB roots, palatal root behind
+      parts.push(['behind', rootPalatal(s, false)], ['root', rootTwo(s, true)], ['crown', crownMolar(s)]);
+    } else if (upper) {                  // palatal: large palatal root in front, buccal roots behind
+      parts.push(['behind', rootTwo(s, true)], ['root', rootPalatal(s, true)],
+                 ['crown', crownMolar(s, [-0.55, 0.9], [0.3, 0], -0.2)]);   // small DP cusp, large MP cusp
+    } else {
+      parts.push(['root', rootTwo(s, false)],
+                 ['crown', lingual ? crownMolar(s, [-0.45, 0], [0.45, 0], 0.02) : crownMolar(s, [-0.55, 0.3], [0.45, 0], 0.1)]);
+    }
+  } else {
+    parts.push(['root', rootSingle(s)], ['crown', crownAnterior(s)]);
+    if (lingual && s.t !== 'pm') parts.push(['detail', cingulum(s)]);
+  }
+  return parts;
+}
+
+function toothSVG(t, roots, view) {
+  const sx = (isRightSide(t) ? 1 : -1) * X_STRETCH;     // mesial always faces the midline
+  const tf = roots === 'down'
+    ? `translate(${VB_W / 2} ${VB_H}) scale(${sx} -1)`
+    : `translate(${VB_W / 2} 0) scale(${sx} 1)`;
+  const parts = toothParts(t, view), id = `cr${t}${view}`;
+  const crown = parts.find(([cls]) => cls === 'crown')[1];
+  const paths = `<clipPath id="${id}"><path d="${crown}"/></clipPath>` +
+    parts.map(([cls, d]) => `<path class="${cls}" d="${d}"${cls === 'detail' ? ` clip-path="url(#${id})"` : ''}/>`).join('');
+  // dashed lines every 2 mm from the CEJ toward the apex, for sketching the gingival margin / pocket
+  const guides = [2, 4, 6, 8, 10, 12, 14].map(mm => {
+    const y = roots === 'down' ? VB_H - (Y0 - mm) : Y0 - mm;
+    return `<line class="guide" x1="0" x2="100" y1="${y}" y2="${y}"/>`;
+  }).join('');
+  return `<div class="pic"><svg viewBox="0 0 100 ${VB_H}" preserveAspectRatio="none">${guides}</svg>` +
+         `<svg class="tooth-svg" viewBox="0 0 ${VB_W} ${VB_H}" preserveAspectRatio="xMidYMid meet"><g transform="${tf}">${paths}</g></svg></div>`;
+}
+
+/* ---------- table ---------- */
+const missing = new Set();
+const saveVals = () => [...document.querySelectorAll('table.chart input')].map(i => i.value);
+function restoreVals(vals) {
+  document.querySelectorAll('table.chart input').forEach((i, k) => { i.value = vals[k] ?? ''; });
+}
+
+function buildTable(id, teeth, rows) {
+  const uni = document.getElementById('numbering').value === 'uni';
+  let h = '<colgroup><col class="lbl">' + teeth.map(() => '<col>').join('') + '</colgroup>';
+  for (const [label, sub, kind, edge, roots, view] of rows) {
+    h += `<tr class="${['pd', 'img', 'teeth'].includes(kind) ? kind : ''} ${edge || ''}">`;
+    h += `<td class="lbl">${label}${sub ? `<small>${sub}</small>` : ''}</td>`;
+    teeth.forEach((t, i) => {
+      const cls = [i === 8 ? 'mid' : '', missing.has(t) ? 'missing' : ''].join(' ');
+      const inner = kind === 'teeth' ? (uni ? universal(t) : t)
+                  : kind === 'img' ? toothSVG(t, roots, view)
+                  : cellHTML(kind, t);
+      h += `<td class="${cls}" data-t="${t}">${inner}</td>`;
+    });
+    h += '</tr>';
+  }
+  const table = document.getElementById(id);
+  table.innerHTML = h;
+  // One X through the whole column of a missing tooth, like crossing it out by hand.
+  // Positioned in % of the table width so it holds for print and Letter zoom.
+  const wrap = table.parentElement;
+  wrap.querySelectorAll('.xout').forEach(x => x.remove());
+  const cells = table.rows[0].cells, tw = table.offsetWidth;
+  teeth.forEach((t, i) => {
+    if (!missing.has(t)) return;
+    const td = cells[i + 1];
+    wrap.insertAdjacentHTML('beforeend',
+      `<svg class="xout" style="left:${td.offsetLeft / tw * 100}%;width:${td.offsetWidth / tw * 100}%" viewBox="0 0 100 100" preserveAspectRatio="none">` +
+      '<line x1="0" y1="0" x2="100" y2="100"/><line x1="100" y1="0" x2="0" y2="100"/></svg>');
+  });
+}
+
+function build() {
+  const vals = saveVals();
+  buildTable('upper', UPPER, UPPER_ROWS);
+  buildTable('lower', LOWER, LOWER_ROWS);
+  if (vals.length) restoreVals(vals);
+  document.querySelectorAll('table.chart input').forEach(styleInput);
+  summarize();
+}
+
+// Each count stays blank until there is something to count, so a chart with
+// only struck-out teeth still prints with empty PD / furcation counts.
+function summarize() {
+  const ins = [...document.querySelectorAll('table.chart td:not(.missing) input')];
+  const pd = ins.filter(i => i.dataset.k === 'pd' && i.value !== '').map(i => +i.value);
+  const furc = ins.filter(i => i.dataset.k === 'furc' && i.value.trim() !== '');
+  const anyData = ins.some(i => i.value.trim() !== '');
+  const set = (id, v, show) => { document.getElementById(id).value = show ? v : ''; };
+  set('sTeeth', 32 - missing.size, missing.size > 0 || anyData);
+  set('s4', pd.filter(v => v >= 4).length, pd.length > 0);
+  set('s6', pd.filter(v => v >= 6).length, pd.length > 0);
+  set('sF', new Set(furc.map(i => i.closest('td').dataset.t)).size, furc.length > 0);
+}
+
+function styleInput(i) {
+  if (i.dataset.k !== 'pd') return;
+  const v = parseInt(i.value, 10);
+  i.classList.toggle('deep', v >= 4 && v < 6);
+  i.classList.toggle('vdeep', v >= 6);
+}
+
+document.addEventListener('input', e => {
+  if (!e.target.matches('table.chart input')) return;
+  const k = e.target.dataset.k, v = e.target.value;
+  if (k === 'pd') e.target.value = v.replace(/\D/g, '');
+  if (k === 'mob') e.target.value = v.replace(/[^0-3]/g, '').slice(0, 1);
+  if (k === 'furc') e.target.value = v.toUpperCase().replace(/[^I1-3]/g, '');
+  if (k === 'prog') e.target.value = v.toUpperCase().replace(/[^GFPQH]/g, '').slice(0, 1);
+  styleInput(e.target);
+  summarize();
+});
+
+// Enter moves to the next box, like Tab.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || !e.target.matches('table.chart input')) return;
+  e.preventDefault();
+  const all = [...document.querySelectorAll('table.chart td:not(.missing) input')];
+  all[all.indexOf(e.target) + (e.shiftKey ? -1 : 1)]?.focus();
+});
+
+document.addEventListener('click', e => {
+  const td = e.target.closest('tr.teeth td[data-t], tr.img td[data-t]');
+  if (!td) return;
+  const t = +td.dataset.t;
+  missing.has(t) ? missing.delete(t) : missing.add(t);
+  build();
+});
+
+function clearAll() {
+  if (!confirm('Clear every field on the chart?')) return;
+  missing.clear();
+  document.querySelectorAll('input').forEach(i => {
+    if (i.type === 'checkbox') i.checked = false; else i.value = '';
+  });
+  setDefaults();
+  build();
+}
+
+function setPaper(p) {
+  document.getElementById('pagesize').textContent = `@page { size: ${p} landscape; margin: 7mm; }`;
+  // Letter is 279.4 mm wide; shrink the sheet so it still fits on one page.
+  document.querySelector('.sheet').style.zoom = p === 'letter' ? 0.985 : '';
+}
+
+// Editable defaults: examiner and today's date (DD/MM/YYYY).
+function setDefaults() {
+  const d = new Date(), pad = v => String(v).padStart(2, '0');
+  document.getElementById('fExaminer').value = 'จิรายุทธ';
+  document.getElementById('fDate').value = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+// Print an empty chart, then put back whatever was on screen.
+function printBlank() {
+  const chartVals = saveVals(), wasMissing = [...missing];
+  const others = [...document.querySelectorAll('.sheet input:not(table input), .sheet textarea')];
+  const otherVals = others.map(i => i.type === 'checkbox' ? i.checked : i.value);
+
+  missing.clear();
+  build();
+  document.querySelectorAll('.sheet input, .sheet textarea').forEach(i => {
+    if (i.type === 'checkbox') i.checked = false; else i.value = '';
+  });
+  document.querySelectorAll('table.chart input').forEach(styleInput);
+  summarize();
+
+  window.print();
+
+  wasMissing.forEach(t => missing.add(t));
+  build();
+  restoreVals(chartVals);
+  document.querySelectorAll('table.chart input').forEach(styleInput);
+  others.forEach((i, k) => { if (i.type === 'checkbox') i.checked = otherVals[k]; else i.value = otherVals[k]; });
+  summarize();
+}
+
+setDefaults();
+build();
+</script>
+</body>
+</html>
