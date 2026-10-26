@@ -661,10 +661,9 @@ function setPaper(p) {
   document.querySelector('.sheet').style.zoom = zoom === 1 ? '' : zoom;
 }
 
-// Editable defaults: examiner and today's date (DD/MM/YYYY).
+// Editable default: today's date (DD/MM/YYYY).
 function setDefaults() {
   const d = new Date(), pad = v => String(v).padStart(2, '0');
-  document.getElementById('fExaminer').value = 'จิรายุทธ';
   document.getElementById('fDate').value = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
