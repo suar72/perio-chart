@@ -4,12 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Periodontal Chart</title>
-<style id="pagesize">@page { size: A4 landscape; margin: 7mm; }</style>
+<style id="pagesize">@page { size: A5 landscape; margin: 3.5mm; }</style>
 <style>
   :root {
     --ink: #111;
-    --line: #555;
-    --soft: #8a8a8a;
+    /* Light "dropout" grid: pen strokes crossing a cell border stay visible to the scanner. */
+    --line: #9a9a9a;
+    --soft: #b9b9b9;
     --na: #e6e6e6;
     --accent: #0b5cad;
     --warn: #c62828;
@@ -27,12 +28,19 @@
   .toolbar .hint { color: #666; font-size: 12px; margin-left: auto; }
 
   /* ---------- sheet ---------- */
-  .sheet { width: 283mm; margin: 12px auto; padding: 0; background: #fff; }
-  @media screen { .sheet { padding: 6mm; width: calc(283mm + 12mm); box-shadow: 0 1px 6px rgba(0,0,0,.15); } }
+  .sheet { width: 287mm; margin: 12px auto; padding: 0; background: #fff; }
+  @media screen { .sheet { padding: 6mm; width: calc(287mm + 12mm); box-shadow: 0 1px 6px rgba(0,0,0,.15); } }
+  /* Scan markers (ArUco 4x4, ids 0-5): 4 corners + middle of top and bottom edges. */
+  .marker { flex: none; width: 9mm; height: 9mm; }
+  .marker svg { display: block; width: 100%; height: 100%; }
+  .marker path { fill: #000; }
+  .scanbar { display: flex; align-items: center; justify-content: space-between; gap: 4mm; margin-top: 1.6mm; font-size: 8.5px; color: #555; }
+  .scanbar span { flex: 1; text-align: center; }
 
-  header.top { display: flex; align-items: flex-end; gap: 2mm 4mm; margin-bottom: 1.5mm; }
+  header.top { display: flex; align-items: center; gap: 2mm 3mm; margin-bottom: 1.6mm; }
   header.top h1 { font-size: 15px; margin: 0; white-space: nowrap; letter-spacing: .2px; }
-  .fields { display: grid; grid-template-columns: minmax(0,2.2fr) minmax(0,1.2fr) minmax(0,.45fr) minmax(0,.9fr) minmax(0,1.5fr); gap: 1.5mm 3mm; flex: 1 1 0; min-width: 0; }
+  .fields { display: grid; grid-template-columns: minmax(0,2.2fr) minmax(0,1fr); gap: 1.5mm 3mm; flex: 1 1 0; min-width: 0; }
+  .fields.right { grid-template-columns: minmax(0,.45fr) minmax(0,.9fr) minmax(0,1.4fr); }
   .field { display: flex; align-items: flex-end; gap: 1.5mm; }
   .field label { white-space: nowrap; font-weight: 600; }
   .field input { flex: 1; min-width: 0; border: 0; border-bottom: 1px solid var(--line);
@@ -46,7 +54,7 @@
   table.chart td { border: 1px solid var(--line); padding: 0; height: 5.1mm; vertical-align: middle; }
   table.chart td.lbl { font-weight: 600; font-size: 9px; padding: 0 1.2mm; border-left-width: 1.5px; line-height: 1.1; }
   table.chart td.lbl small { display: block; font-weight: 400; color: #555; font-size: 7.5px; }
-  table.chart td.mid { border-left: 2px solid var(--ink); }  /* midline */
+  table.chart td.mid { border-left: 2px solid #6e6e6e; }  /* midline */
   tr.pd td { height: 6.8mm; }
   tr.img td { height: 13.4mm; cursor: pointer; }
   tr.img .pic { position: relative; height: 13.4mm; }
@@ -100,7 +108,63 @@
   .opts b { font-size: 9px; margin-right: -1mm; }
   .opts .sep { width: 2mm; }
 
+
+  /* ---------- scanner (full-screen panel over the chart; never printed) ---------- */
+  [hidden] { display: none !important; }
+  .boxes input.check { box-shadow: inset 0 0 0 2.5px #e0a000; }   /* scanned value to double-check (screen only) */
+  .scan { position: fixed; inset: 0; z-index: 20; background: #eef0f3; overflow: auto; font-size: 14px; line-height: 1.4; }
+  .scan button { font: inherit; padding: 8px 14px; border: 1px solid #b9bfc9; border-radius: 8px; background: #fff; color: var(--ink); cursor: pointer; }
+  .scan button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .scan button:disabled { opacity: .5; cursor: default; }
+  .scan select { font: inherit; padding: 6px 8px; border: 1px solid #b9bfc9; border-radius: 8px; background: #fff; }
+  .scan-head { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #fff; border-bottom: 1px solid #dde1e6; }
+  .scan-head h2 { font-size: 16px; margin: 0; }
+  .scan-steps { display: flex; gap: 8px; flex: 1; justify-content: center; font-size: 13px; color: #8a919c; }
+  .scan-steps span.on { color: var(--accent); font-weight: 700; }
+  .scan-steps span.done { color: #1e7b45; }
+  .scan-body { max-width: 1180px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+  .scan-card { background: #fff; border: 1px solid #dde1e6; border-radius: 12px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+  .scan .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .scan .muted { color: #5d6470; margin: 0; }
+  .drop { border: 2px dashed #b9c0ca; border-radius: 12px; padding: 36px 16px; text-align: center; display: grid; gap: 8px; justify-items: center; cursor: pointer; }
+  .drop:hover, .drop.over { border-color: var(--accent); background: #f1f6fd; }
+  .drop strong { font-size: 17px; }
+  .drop .cam { font-size: 30px; line-height: 1; }
+  .tips { margin: 0; padding-left: 18px; color: #5d6470; font-size: 13px; display: grid; gap: 3px; }
+  .spinner { width: 18px; height: 18px; border: 3px solid #cfd6e0; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+  .chip { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; background: #eef0f3; color: #3b4250; }
+  .chip.ok { background: #e3f3e9; color: #1e7b45; }
+  .chip.warn { background: #fdf1dc; color: #9a5b00; }
+  .chip.bad { background: #fde5e5; color: var(--warn); }
+  .scan .scroll { overflow-x: auto; }
+  .scan .jaw { min-width: 960px; display: grid; gap: 2px; }
+  .scan .strip { position: relative; }
+  .scan .strip canvas { display: block; width: 100%; height: auto; }
+  .scan .inrow { position: relative; height: 30px; margin-bottom: 6px; }
+  .scan .inrow input { position: absolute; top: 0; height: 28px; padding: 0; text-align: center; font: 700 15px/1 -apple-system, Arial, sans-serif;
+    border: 1px solid #c3c8d0; border-radius: 4px; background: #fff; color: var(--ink); }
+  .scan .inrow input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+  .scan .inrow input.read { color: var(--accent); }
+  .scan .inrow input.low { background: #fff3c4; border-color: #d99a00; }
+  .scan .inrow input:disabled { background: repeating-linear-gradient(45deg, #eee 0 3px, #f8f8f8 3px 6px); border-color: #e2e2e2; }
+  .scan .teethbar { position: absolute; inset: 0; }
+  .scan .teethbar button { position: absolute; top: 0; height: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; }
+  .scan .teethbar button:hover { background: rgba(11, 92, 173, .08); }
+  .scan .teethbar button.off { background: rgba(198, 40, 40, .18); }
+  .scan .teethbar button.off::after { content: "✕"; color: var(--warn); font-size: 18px; font-weight: 700; }
+  .scan details canvas { width: 100%; height: auto; border: 1px solid #dde1e6; margin-top: 8px; }
+  .scan details summary { cursor: pointer; color: #5d6470; }
+  .scan-foot { position: sticky; bottom: 0; z-index: 3; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 16px; background: #fff; border-top: 1px solid #dde1e6; }
+  .scan-foot .muted { flex: 1; }
+  .toast { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 30; max-width: min(640px, calc(100vw - 32px));
+    background: #16181d; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.25); display: flex; gap: 12px; align-items: center; }
+  .toast button { background: none; border: 0; color: #9cc3ff; font: inherit; cursor: pointer; padding: 0; }
+
   @media print {
+    .scan, .toast { display: none !important; }
+    .boxes input.check { box-shadow: none; }
     html, body { background: #fff; }
     .toolbar { display: none; }
     .sheet { margin: 0; box-shadow: none; }
@@ -115,6 +179,7 @@
 <div class="toolbar">
   <button class="primary" onclick="window.print()">Print</button>
   <button onclick="printBlank()">Print blank</button>
+  <button onclick="Scanner.open()">Scan filled sheet</button>
   <button onclick="clearAll()">Clear all</button>
   <label>Numbering
     <select id="numbering" onchange="build()">
@@ -124,19 +189,24 @@
   </label>
   <label>Paper
     <select id="paper" onchange="setPaper(this.value)">
+      <option value="A5">A5</option>
       <option value="A4">A4</option>
       <option value="letter">Letter</option>
     </select>
   </label>
-  <span class="hint">Tap a tooth number or drawing to strike out a missing tooth. Empty boxes print blank.</span>
+  <span class="hint">Tap a tooth number or drawing to strike out a missing tooth. Empty boxes print blank. Scan filled sheet reads a photo of a handwritten chart.</span>
 </div>
 
 <div class="sheet">
   <header class="top">
+    <div class="marker" data-id="0"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM2 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div>
     <h1>Periodontal Chart</h1>
     <div class="fields">
       <div class="field"><label>Patient</label><input></div>
       <div class="field"><label>HN</label><input></div>
+    </div>
+    <div class="marker" data-id="1"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div>
+    <div class="fields right">
       <div class="field"><label>Age</label><input></div>
       <div class="field"><label>Date</label><input id="fDate"></div>
       <div class="field"><label>Examiner</label><input id="fExaminer"></div>
@@ -146,6 +216,7 @@
       <label class="ck"><input type="checkbox">Re-eval</label>
       <label class="ck"><input type="checkbox">SPT</label>
     </div>
+    <div class="marker" data-id="2"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div>
   </header>
 
   <div class="jaw"><table class="chart" id="upper"></table></div>
@@ -155,7 +226,6 @@
   <footer class="bottom">
     <div class="box">
       <h3>Diagnosis</h3>
-      <input class="wline">
       <input class="wline">
       <input class="wline">
       <input class="wline">
@@ -174,10 +244,76 @@
     </div>
     <div class="box">
       <h3>Treatment plan</h3>
-      <div class="tx"><input class="wline"><input class="wline"><input class="wline"><input class="wline"><input class="wline"><input class="wline"><input class="wline"><input class="wline"></div>
+      <div class="tx"><input class="wline"><input class="wline"><input class="wline"><input class="wline"><input class="wline"><input class="wline"></div>
     </div>
   </footer>
+  <div class="scanbar">
+    <div class="marker" data-id="3"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div><span>To scan: keep all six black squares in the photo, sheet flat, good light.</span><div class="marker" data-id="4"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div><span>Scan it with “Scan filled sheet” at suar72.github.io/perio-chart</span><div class="marker" data-id="5"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div>
+  </div>
 </div>
+
+<div class="scan" id="scan" role="dialog" aria-modal="true" aria-labelledby="scanTitle" hidden>
+  <div class="scan-head">
+    <h2 id="scanTitle">Scan a filled sheet</h2>
+    <div class="scan-steps" aria-hidden="true">
+      <span data-step="pick">1 Photo</span><span>›</span><span data-step="review">2 Check</span><span>›</span><span data-step="apply">3 Apply</span>
+    </div>
+    <button id="scanClose">Close</button>
+  </div>
+
+  <div class="scan-body">
+    <section class="scan-card" id="scanPick">
+      <label class="drop" id="drop">
+        <input id="photo" type="file" accept="image/*" hidden>
+        <span class="cam" aria-hidden="true">📷</span>
+        <strong>Take or choose a photo of the filled sheet</strong>
+        <span class="muted">or drop an image here</span>
+      </label>
+      <ul class="tips">
+        <li>Lay the sheet flat in good light, without glare.</li>
+        <li>Keep all six black squares in the photo. Any angle is fine.</li>
+        <li>The photo is read on this device and is not uploaded.</li>
+      </ul>
+      <p class="muted" id="scanStatus"></p>
+    </section>
+
+    <section class="scan-card" id="scanWork" hidden>
+      <div class="row"><span class="spinner" aria-hidden="true"></span><strong id="workText">Reading the photo…</strong></div>
+      <p class="muted" id="workNote"></p>
+    </section>
+
+    <section class="scan-card" id="scanError" hidden>
+      <strong id="errText"></strong>
+      <p class="muted" id="errTip"></p>
+      <div class="row"><button class="primary" id="retry">Try another photo</button></div>
+    </section>
+
+    <section class="scan-card" id="scanReview" hidden>
+      <div class="row">
+        <span id="markerChip" class="chip"></span>
+        <span id="errChip" class="chip"></span>
+        <span id="readChip" class="chip"></span>
+      </div>
+      <p class="muted">Check each value against the handwriting above it and fix anything wrong. Yellow boxes are ones the reader was unsure of. Tap a tooth number to mark it missing.</p>
+      <div class="row">
+        <button id="nextCheck">Next yellow box</button>
+        <label class="muted">Reader <select id="reader"></select></label>
+        <button id="runReader">Read again</button>
+        <span class="muted" id="readStatus"></span>
+      </div>
+      <div class="scroll"><div class="jaw" id="jaw-upper"></div></div>
+      <div class="scroll"><div class="jaw" id="jaw-lower"></div></div>
+      <details><summary>Show the flattened photo</summary><canvas id="flatView"></canvas></details>
+    </section>
+  </div>
+
+  <div class="scan-foot" id="scanFoot" hidden>
+    <button id="retake">Retake photo</button>
+    <span class="muted" id="countStatus"></span>
+    <button class="primary" id="applyScan">Apply to chart</button>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" hidden><span id="toastText"></span><button id="toastClose">Dismiss</button></div>
 
 <script>
 const UPPER = [18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28];
@@ -447,6 +583,7 @@ function styleInput(i) {
 
 document.addEventListener('input', e => {
   if (!e.target.matches('table.chart input')) return;
+  e.target.classList.remove('check');
   const k = e.target.dataset.k, v = e.target.value;
   if (k === 'pd') e.target.value = v.replace(/\D/g, '');
   if (k === 'mob') e.target.value = v.replace(/[^0-3]/g, '').slice(0, 1);
@@ -482,10 +619,12 @@ function clearAll() {
   build();
 }
 
+// The sheet is laid out for A4 (287 mm wide inside 5 mm margins) and zoomed for other paper.
+const PAPER = { A4: [1, 5], A5: [210 / 297, 3.5], letter: [269.4 / 287, 5] };
 function setPaper(p) {
-  document.getElementById('pagesize').textContent = `@page { size: ${p} landscape; margin: 7mm; }`;
-  // Letter is 279.4 mm wide; shrink the sheet so it still fits on one page.
-  document.querySelector('.sheet').style.zoom = p === 'letter' ? 0.985 : '';
+  const [zoom, margin] = PAPER[p];
+  document.getElementById('pagesize').textContent = `@page { size: ${p} landscape; margin: ${margin}mm; }`;
+  document.querySelector('.sheet').style.zoom = zoom === 1 ? '' : zoom;
 }
 
 // Editable defaults: examiner and today's date (DD/MM/YYYY).
@@ -521,6 +660,402 @@ function printBlank() {
 
 setDefaults();
 build();
+setPaper(document.getElementById('paper').value);
+
+/* ---------- scanner ----------
+   Photo of a filled printout -> find the 6 markers -> flatten -> read handwriting -> review -> apply.
+   Heavy parts (OpenCV ~10 MB, digit model, blank template) load only when the scanner opens. */
+const Scanner = (() => {
+  const $ = id => document.getElementById(id);
+  const PX = 8;                  // flattened image resolution, px per mm of the A4 layout
+  const MAX_SIDE = 2600;         // photos are scaled down to this before detection
+  const LOW_CONFIDENCE = 0.95;   // on synthetic handwriting this flags ~1 cell in 9 and catches ~2/3 of misreads
+  const OPENCV = 'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js';
+  const ASSETS = ['scan/layout.js', 'scan/template.js', 'scan/digits.js', 'scan/reader-ondevice.js'];
+  const TEST = new URLSearchParams(location.search).get('test');
+  let cv = null, L = null, flat = null, deps = null;
+  const scanMissing = new Set();
+  const frame = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+
+  /* Readers. run(ctx) gets { cv, flat (cv.Mat RGBA), px, layout, cellImages() } and resolves to
+     { values: { [i]: { value, confidence 0..1 } }, missing: [tooth, …] }. cellImages() returns each
+     data cell as { i, kind, tooth, jaw, canvas } and each tooth column as { tooth, jaw, canvas }. */
+  const READERS = {
+    ondevice: { label: 'On this device', ready: () => !!window.OnDeviceReader, run: ctx => window.OnDeviceReader.run(ctx) },
+    // Placeholder: Claude vision needs a small server that holds the API key; never put the key in this page.
+    claude: { label: 'Claude vision (not set up)', ready: () => false },
+    off: { label: 'Off: type values', ready: () => true, run: async () => ({ values: {}, missing: [] }) },
+  };
+  for (const [key, r] of Object.entries(READERS)) {
+    $('reader').insertAdjacentHTML('beforeend', `<option value="${key}" ${r.ready() || key === 'ondevice' ? '' : 'disabled'}>${r.label}</option>`);
+  }
+
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = res;
+      s.onerror = () => rej(new Error('Could not load ' + src.split('/').pop()));
+      document.head.appendChild(s);
+    });
+  }
+
+  function loadDeps() {
+    if (!deps) {
+      deps = (async () => {
+        await Promise.all(ASSETS.map(loadScript));
+        L = window.LAYOUT;
+        await loadScript(OPENCV);
+        let c = window.cv;
+        if (c instanceof Promise) c = await c;
+        if (!c.Mat) await new Promise(r => { c.onRuntimeInitialized = r; });
+        cv = c;
+      })();
+      deps.catch(() => { deps = null; });
+    }
+    return deps;
+  }
+
+  /* ---------- panel ---------- */
+  function show(step) {
+    $('scanPick').hidden = step !== 'pick';
+    $('scanWork').hidden = step !== 'work';
+    $('scanError').hidden = step !== 'error';
+    $('scanReview').hidden = step !== 'review';
+    $('scanFoot').hidden = step !== 'review';
+    const order = ['pick', 'review', 'apply'], at = step === 'review' ? 1 : 0;
+    document.querySelectorAll('.scan-steps [data-step]').forEach(s => {
+      const k = order.indexOf(s.dataset.step);
+      s.className = k === at ? 'on' : k < at ? 'done' : '';
+    });
+    $('scan').scrollTop = 0;
+  }
+
+  function open() {
+    $('scan').hidden = false;
+    document.body.style.overflow = 'hidden';
+    show('pick');
+    $('scanStatus').textContent = cv ? '' : 'Getting the scanner ready in the background…';
+    loadDeps().then(() => { $('scanStatus').textContent = ''; },
+      e => { $('scanStatus').textContent = 'The scanner could not load (it needs internet the first time). ' + e.message; });
+    $('drop').focus();
+  }
+
+  function close() {
+    $('scan').hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  function fail(text, tip) {
+    $('errText').textContent = text;
+    $('errTip').textContent = tip || '';
+    show('error');
+  }
+
+  async function handle(src) {
+    show('work');
+    $('workNote').textContent = '';
+    try {
+      if (!cv) {
+        $('workText').textContent = 'Loading the scanner…';
+        $('workNote').textContent = 'First time only: about 10 MB. Later scans start right away.';
+        await loadDeps();
+        $('workNote').textContent = '';
+      }
+      $('workText').textContent = 'Finding the six markers…';
+      const img = await new Promise((res, rej) => {
+        const i = new Image();
+        i.onload = () => res(i);
+        i.onerror = () => rej(new Error('That file could not be opened as an image.'));
+        i.src = src;
+      });
+      await frame();
+      const r = align(img);
+      if (!r.ok) return fail(r.text, r.tip);
+      $('workText').textContent = 'Reading the handwriting…';
+      await frame();
+      buildReview();
+      await read('ondevice');
+      show('review');
+    } catch (e) {
+      fail('Something went wrong reading that photo.', e.message || String(e));
+    }
+  }
+
+  /* ---------- align ---------- */
+  function detectMarkers(gray) {
+    const dict = cv.getPredefinedDictionary(cv.DICT_4X4_50);
+    const params = new cv.aruco_DetectorParameters();
+    const refine = new cv.aruco_RefineParameters(10, 3, true);
+    const det = new cv.aruco_ArucoDetector(dict, params, refine);
+    const corners = new cv.MatVector(), ids = new cv.Mat(), rejected = new cv.MatVector();
+    det.detectMarkers(gray, corners, ids, rejected);
+    const wanted = new Set(L.markers.map(m => m.id)), out = [];
+    for (let k = 0; k < ids.rows; k++) {
+      const id = ids.data32S[k];
+      if (!wanted.has(id) || out.some(o => o.id === id)) continue;
+      const d = corners.get(k).data32F;
+      out.push({ id, pts: [[d[0], d[1]], [d[2], d[3]], [d[4], d[5]], [d[6], d[7]]] });
+    }
+    [dict, params, refine, det, corners, ids, rejected].forEach(m => m.delete && m.delete());
+    return out;
+  }
+
+  function align(img) {
+    const k = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * k);
+    c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+
+    const src = cv.imread(c), gray = new cv.Mat();
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    const found = detectMarkers(gray);
+    gray.delete();
+    const n = found.length, total = L.markers.length;
+    if (n < 3) {
+      src.delete();
+      return { ok: false, text: n ? `Found only ${n} of the ${total} black squares.` : 'No black squares found in this photo.',
+        tip: 'Retake it with the whole sheet in the frame, flat, in good light, with no glare on the squares. Sheets printed before the scanner was added cannot be scanned.' };
+    }
+
+    const imgPts = [], sheetPts = [];
+    for (const f of found) {
+      const m = L.markers.find(m => m.id === f.id);
+      const sq = [[m.x, m.y], [m.x + m.w, m.y], [m.x + m.w, m.y + m.h], [m.x, m.y + m.h]];
+      f.pts.forEach((p, j) => { imgPts.push(p); sheetPts.push(sq[j].map(v => v * PX)); });
+    }
+    const a = cv.matFromArray(imgPts.length, 1, cv.CV_32FC2, imgPts.flat());
+    const b = cv.matFromArray(sheetPts.length, 1, cv.CV_32FC2, sheetPts.flat());
+    const H = cv.findHomography(a, b, cv.RANSAC, 4);
+    if (flat) flat.delete();
+    flat = new cv.Mat();
+    cv.warpPerspective(src, flat, H, new cv.Size(Math.round(L.sheet.w * PX), Math.round(L.sheet.h * PX)),
+      cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar(255, 255, 255, 255));
+
+    // How far the marker corners land from where they should be, in mm.
+    const proj = new cv.Mat();
+    cv.perspectiveTransform(a, proj, H);
+    let err = 0;
+    for (let j = 0; j < sheetPts.length; j++) {
+      err += Math.hypot(proj.data32F[2 * j] - sheetPts[j][0], proj.data32F[2 * j + 1] - sheetPts[j][1]);
+    }
+    err /= sheetPts.length * PX;
+    [src, a, b, H, proj].forEach(m => m.delete());
+
+    $('markerChip').textContent = `${n} of ${total} markers`;
+    $('markerChip').className = 'chip ' + (n === total ? 'ok' : 'warn');
+    $('errChip').textContent = `Alignment ${err.toFixed(2)} mm`;
+    $('errChip').className = 'chip ' + (err < 0.5 ? 'ok' : err < 1.2 ? 'warn' : 'bad');
+    cv.imshow($('flatView'), flat);
+    if (TEST) document.title = 'SCAN ' + JSON.stringify({ markers: n, errorMm: +err.toFixed(3) });
+    return { ok: true };
+  }
+
+  /* ---------- review ---------- */
+  function cropCanvas(x, y, w, h) {
+    const r = new cv.Rect(Math.max(0, Math.round(x * PX)), Math.max(0, Math.round(y * PX)), Math.round(w * PX), Math.round(h * PX));
+    r.width = Math.min(r.width, flat.cols - r.x);
+    r.height = Math.min(r.height, flat.rows - r.y);
+    const roi = flat.roi(r), c = document.createElement('canvas');
+    cv.imshow(c, roi);
+    roi.delete();
+    return c;
+  }
+
+  const pct = v => (v / L.sheet.w * 100) + '%';
+
+  function buildReview() {
+    scanMissing.clear();
+    for (const jaw of ['upper', 'lower']) {
+      const host = $('jaw-' + jaw);
+      host.innerHTML = '';
+      for (const row of L.rows.filter(r => r.jaw === jaw)) {
+        const strip = document.createElement('div');
+        strip.className = 'strip';
+        strip.appendChild(cropCanvas(0, row.y, L.sheet.w, row.h));
+        host.appendChild(strip);
+        if (row.kind === 'teeth') {
+          const bar = document.createElement('div');
+          bar.className = 'teethbar';
+          for (const col of L.columns.filter(c => c.jaw === jaw)) {
+            const btn = document.createElement('button');
+            btn.title = `Tooth ${col.tooth}: tap to mark missing`;
+            btn.setAttribute('aria-label', `Tooth ${col.tooth} missing`);
+            btn.dataset.tooth = col.tooth;
+            btn.style.left = pct(col.x);
+            btn.style.width = pct(col.w);
+            btn.onclick = () => toggleMissing(col.tooth);
+            bar.appendChild(btn);
+          }
+          strip.appendChild(bar);
+          continue;
+        }
+        const fields = L.fields.filter(f => f.jaw === jaw && f.r === row.r);
+        if (!fields.length) continue;
+        const inrow = document.createElement('div');
+        inrow.className = 'inrow';
+        for (const f of fields) {
+          const inp = document.createElement('input');
+          inp.dataset.i = f.i;
+          inp.dataset.k = f.kind;
+          inp.dataset.tooth = f.tooth;
+          inp.autocomplete = 'off';
+          inp.inputMode = f.kind === 'pd' ? 'numeric' : 'text';
+          inp.maxLength = f.kind === 'furc' ? 3 : 2;
+          inp.setAttribute('aria-label', `${f.kind} ${f.tooth}`);
+          inp.style.left = `calc(${pct(f.x)} + 1px)`;
+          inp.style.width = `calc(${pct(f.w)} - 2px)`;
+          inrow.appendChild(inp);
+        }
+        host.appendChild(inrow);
+      }
+    }
+    updateCount();
+  }
+
+  function toggleMissing(t, on = !scanMissing.has(t)) {
+    on ? scanMissing.add(t) : scanMissing.delete(t);
+    document.querySelectorAll(`.teethbar button[data-tooth="${t}"]`).forEach(b => b.classList.toggle('off', on));
+    document.querySelectorAll(`.inrow input[data-tooth="${t}"]`).forEach(i => { i.disabled = on; });
+    updateCount();
+  }
+
+  function updateCount() {
+    const ins = [...document.querySelectorAll('.inrow input:not(:disabled)')];
+    const filled = ins.filter(i => i.value.trim()).length, low = ins.filter(i => i.classList.contains('low')).length;
+    $('countStatus').textContent = `${filled} values · ${32 - scanMissing.size} teeth present` + (low ? ` · ${low} yellow to check` : '');
+    $('nextCheck').disabled = !low;
+  }
+
+  async function read(key) {
+    const r = READERS[key];
+    if (!flat || !r?.ready()) return;
+    $('reader').value = key;
+    $('readStatus').textContent = 'Reading…';
+    await frame();
+    const inset = 0.45;   // mm trimmed off each side so cell borders don't look like strokes
+    const cellImages = () => ({
+      cells: L.fields.map(f => ({ i: f.i, kind: f.kind, tooth: f.tooth, jaw: f.jaw,
+        canvas: cropCanvas(f.x + inset, f.y + inset, f.w - 2 * inset, f.h - 2 * inset) })),
+      columns: L.columns.map(c => ({ tooth: c.tooth, jaw: c.jaw, canvas: cropCanvas(c.x, c.y, c.w, c.h) })),
+    });
+    let res;
+    try {
+      res = await r.run({ cv, flat, px: PX, layout: L, cellImages });
+    } catch (e) {
+      $('readStatus').textContent = 'The reader failed: ' + (e.message || e);
+      return;
+    }
+    document.querySelectorAll('.inrow input').forEach(i => { i.value = ''; i.classList.remove('low', 'read'); delete i.dataset.conf; });
+    L.columns.forEach(c => toggleMissing(c.tooth, (res.missing || []).includes(c.tooth)));
+    let n = 0, low = 0;
+    for (const [i, { value, confidence }] of Object.entries(res.values || {})) {
+      const inp = document.querySelector(`.inrow input[data-i="${i}"]`);
+      if (!inp || inp.disabled) continue;
+      inp.value = value;
+      inp.dataset.conf = confidence.toFixed(3);
+      inp.classList.add('read');
+      if (value) n++;
+      if (confidence < LOW_CONFIDENCE) { inp.classList.add('low'); low++; }
+    }
+    $('readChip').textContent = `${n} values read · ${low} to check` + (scanMissing.size ? ` · ${scanMissing.size} missing teeth` : '');
+    $('readChip').className = 'chip ' + (low ? 'warn' : 'ok');
+    $('readStatus').textContent = '';
+    updateCount();
+    if (TEST) document.title += ' READ';
+  }
+
+  function nextCheck() {
+    const lows = [...document.querySelectorAll('.inrow input.low:not(:disabled)')];
+    if (!lows.length) return;
+    const at = lows.indexOf(document.activeElement);
+    const next = lows[(at + 1) % lows.length];
+    next.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+    next.focus({ preventScroll: true });
+    next.select();
+  }
+
+  /* ---------- apply ---------- */
+  function apply() {
+    const values = L.fields.map(() => ''), flagged = new Set();
+    document.querySelectorAll('.inrow input').forEach(i => {
+      if (i.disabled) return;
+      values[+i.dataset.i] = i.value.trim();
+      if (i.classList.contains('low')) flagged.add(+i.dataset.i);
+    });
+    missing.clear();
+    scanMissing.forEach(t => missing.add(t));
+    build();
+    restoreVals(values);
+    document.querySelectorAll('table.chart input').forEach((inp, k) => {
+      styleInput(inp);
+      inp.classList.toggle('check', flagged.has(k) && !!inp.value);
+    });
+    summarize();
+    close();
+    window.scrollTo(0, 0);
+    const filled = values.filter(Boolean).length;
+    toast(`Filled ${filled} values${missing.size ? ` and ${missing.size} missing teeth` : ''} from the photo.` +
+      (flagged.size ? ` Boxes outlined in yellow need a second look.` : ''));
+  }
+
+  let toastTimer;
+  function toast(text) {
+    $('toastText').textContent = text;
+    $('toast').hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { $('toast').hidden = true; }, 10000);
+  }
+
+  /* ---------- wiring ---------- */
+  $('photo').addEventListener('change', e => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (f) handle(URL.createObjectURL(f));
+  });
+  const drop = $('drop');
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault();
+    drop.classList.remove('over');
+    const f = [...e.dataTransfer.files].find(f => f.type.startsWith('image/'));
+    if (f) handle(URL.createObjectURL(f));
+  });
+  drop.tabIndex = 0;
+  drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('photo').click(); } });
+  $('scanClose').onclick = close;
+  $('retry').onclick = () => show('pick');
+  $('retake').onclick = () => show('pick');
+  $('applyScan').onclick = apply;
+  $('nextCheck').onclick = nextCheck;
+  $('runReader').onclick = () => read($('reader').value);
+  $('toastClose').onclick = () => { $('toast').hidden = true; };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('scan').hidden) close(); });
+
+  document.addEventListener('input', e => {
+    const i = e.target;
+    if (!i.matches('.inrow input')) return;
+    const k = i.dataset.k, v = i.value;
+    if (k === 'pd') i.value = v.replace(/\D/g, '');
+    if (k === 'mob') i.value = v.replace(/[^0-3]/g, '').slice(0, 1);
+    if (k === 'furc') i.value = v.toUpperCase().replace(/[^I1-3]/g, '');
+    if (k === 'prog') i.value = v.toUpperCase().replace(/[^GFPQH]/g, '').slice(0, 1);
+    i.classList.remove('low', 'read');
+    updateCount();
+  });
+  // Enter moves to the next box, like Tab.
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || !e.target.matches('.inrow input')) return;
+    e.preventDefault();
+    const all = [...document.querySelectorAll('.inrow input:not(:disabled)')];
+    all[all.indexOf(e.target) + (e.shiftKey ? -1 : 1)]?.focus();
+  });
+
+  if (TEST) { open(); handle(TEST); }
+  return { open };
+})();
 </script>
 </body>
 </html>
