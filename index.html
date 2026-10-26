@@ -239,9 +239,17 @@
   .li .crop canvas, .li .crop img { max-height: 38px; max-width: 100%; border-radius: 6px; background: #fff; }
   .li .crop canvas, .scan .strip canvas { filter: brightness(1.07) contrast(1.08); }   /* photo crops read as clean paper */
   .li .crop .none { color: var(--ui-sub); font-size: 13px; }
-  .li.tall { grid-template-columns: 92px minmax(0, 1fr) auto; }
-  .li.tall .crop { height: auto; }
+  .li.tall { align-items: start; }
+  .li.tall > .k { padding-top: 8px; }
+  .li.tall .crop { height: auto; min-height: 38px; }
   .li.tall .crop img { max-height: 96px; width: auto; max-width: 100%; }
+  .li .crop img { transition: opacity .2s; }
+  .li.typed .crop img { opacity: .3; }                          /* typed text will replace this handwriting */
+  .text-in { width: min(280px, 100%); height: 34px; border: 0; border-radius: 8px; background: var(--ui-fill-2); color: var(--ui-text);
+    font: 15px/1.35 var(--ui-font); padding: 0 10px; }
+  textarea.text-in { width: 100%; height: auto; min-height: 64px; padding: 8px 10px; resize: vertical; grid-column: 2 / -1; }
+  .text-in::placeholder { color: var(--ui-sub); opacity: .8; }
+  .text-in:focus { outline: 2px solid var(--ui-accent); outline-offset: 0; background: var(--ui-surface); }
   .field-in { width: 132px; height: 34px; border: 0; border-radius: 8px; background: var(--ui-fill-2); color: var(--ui-text);
     font: 600 15px/1 var(--ui-font); font-variant-numeric: tabular-nums; text-align: center; padding: 0 8px; }
   .field-in:focus { outline: 2px solid var(--ui-accent); outline-offset: 0; background: var(--ui-surface); }
@@ -252,6 +260,8 @@
     .li { grid-template-columns: 1fr auto; }
     .li .crop { grid-column: 1 / -1; grid-row: 2; }
     .field-in { width: 112px; }
+    .text-in { width: 100%; }
+    .li .v:has(.text-in), textarea.text-in { grid-column: 1 / -1; }
   }
 
   /* Chart strips: the photo row with the read values lined up beneath */
@@ -816,6 +826,28 @@ const HANDWRITING_FIELDS = {
   diagnosis: () => [...document.querySelectorAll('.sheet .box')[0].querySelectorAll('.wline')],
   treatment_plan: () => [...document.querySelectorAll('.sheet .box')[1].querySelectorAll('.wline')],
 };
+// Put text into one or more single-line inputs (e.g. the 3 diagnosis lines): typed line breaks are
+// kept, long lines wrap at word boundaries by measured width, and anything left over joins the last line.
+function fillLines(inputs, text) {
+  const ctx = document.createElement('canvas').getContext('2d');
+  const lines = [];
+  for (const para of text.split(/\n/)) {
+    let line = '';
+    for (const word of para.split(/\s+/).filter(Boolean)) {
+      const i = Math.min(lines.length, inputs.length - 1), inp = inputs[i], cs = getComputedStyle(inp);
+      ctx.font = `${cs.fontSize} ${cs.fontFamily}`;
+      const room = inp.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2;
+      const next = line ? line + ' ' + word : word;
+      if (line && ctx.measureText(next).width > room && lines.length < inputs.length - 1) { lines.push(line); line = word; }
+      else line = next;
+    }
+    lines.push(line);
+  }
+  const kept = lines.slice(0, inputs.length - 1);
+  kept.push(lines.slice(inputs.length - 1).filter(Boolean).join(' '));
+  inputs.forEach((inp, i) => { inp.value = kept[i] || ''; });
+}
+
 function setHandwriting(key, img) {
   const layer = document.getElementById('inkLayer');
   layer.querySelector(`[data-key="${key}"]`)?.remove();
@@ -1232,12 +1264,20 @@ const Scanner = (() => {
     return row;
   }
 
-  function handwritingRow(key, cls = '') {
-    const row = listRow(HW_LABELS[key], cls);
+  // Free-text fields aren't read: the handwriting is copied as written, unless something is typed
+  // in the box, which then replaces it.
+  function handwritingRow(key, multiline = false) {
+    const row = listRow(HW_LABELS[key], multiline ? 'tall' : '');
     row.dataset.hwRow = key;
     row.querySelector('.crop').innerHTML = '<span class="none">Nothing written</span>';
-    row.querySelector('.v').innerHTML = `<label class="switch" title="Copy this handwriting into the chart">` +
-      `<input type="checkbox" data-hw="${key}" aria-label="Copy ${HW_LABELS[key]} into the chart" disabled><span class="track"></span></label>`;
+    const box = document.createElement(multiline ? 'textarea' : 'input');
+    box.className = 'text-in';
+    box.dataset.text = key;
+    box.setAttribute('aria-label', HW_LABELS[key]);
+    box.placeholder = 'Type to replace the handwriting';
+    if (multiline) { box.rows = 2; row.appendChild(box); row.querySelector('.v').remove(); }
+    else { box.autocomplete = 'off'; row.querySelector('.v').appendChild(box); }
+    box.addEventListener('input', () => row.classList.toggle('typed', !!box.value.trim() && !!row.img));
     return row;
   }
 
@@ -1287,8 +1327,8 @@ const Scanner = (() => {
     }
     pc.appendChild(segmentRow('Visit', VISIT));
     ac.appendChild(segmentRow('Prognosis', PROG));
-    ac.appendChild(handwritingRow('diagnosis', 'tall'));
-    ac.appendChild(handwritingRow('treatment_plan', 'tall'));
+    ac.appendChild(handwritingRow('diagnosis', true));
+    ac.appendChild(handwritingRow('treatment_plan', true));
   }
 
   function showExtras(res) {
@@ -1304,10 +1344,10 @@ const Scanner = (() => {
       b.classList.toggle('low', !!c && c.confidence < LOW_CONFIDENCE);
     });
     document.querySelectorAll('[data-hw-row]').forEach(row => {
-      const key = row.dataset.hwRow, img = res.images?.[key], crop = row.querySelector('.crop'), sw = row.querySelector('[data-hw]');
+      const key = row.dataset.hwRow, img = res.images?.[key], crop = row.querySelector('.crop'), box = row.querySelector('[data-text]');
       row.img = img || null;
-      sw.disabled = !img;
-      sw.checked = !!img;
+      box.placeholder = img ? 'Type to replace the handwriting' : `Type the ${HW_LABELS[key].toLowerCase()} (optional)`;
+      row.classList.toggle('typed', !!box.value.trim() && !!img);
       if (!img) { crop.innerHTML = '<span class="none">Nothing written</span>'; return; }
       const el = new Image();
       el.src = img.src;
@@ -1465,7 +1505,14 @@ const Scanner = (() => {
     const sheetChecks = document.querySelectorAll('.sheet label.ck input');
     document.querySelectorAll('.scan .chk').forEach(b => { sheetChecks[+b.dataset.i].checked = b.getAttribute('aria-pressed') === 'true'; });
     document.querySelectorAll('[data-hw-row]').forEach(row => {
-      setHandwriting(row.dataset.hwRow, row.querySelector('[data-hw]').checked && row.img ? row.img : null);
+      const key = row.dataset.hwRow, text = row.querySelector('[data-text]').value.trim(), fields = HANDWRITING_FIELDS[key]();
+      if (text) {
+        fillLines(fields, text);
+        setHandwriting(key, null);
+      } else if (row.img) {
+        fields.forEach(f => { f.value = ''; });                // the handwriting takes the field's place
+        setHandwriting(key, row.img);
+      }
     });
     setMarkers(false);   // finished chart: ready to print or export without the scan markers
     close();
