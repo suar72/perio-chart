@@ -245,7 +245,9 @@
   .li.tall .crop img { max-height: 96px; width: auto; max-width: 100%; }
   .li .crop img { transition: opacity .2s; }
   .li.typed .crop img { opacity: .3; }                          /* typed text will replace this handwriting */
-  .text-in { width: min(280px, 100%); height: 34px; border: 0; border-radius: 8px; background: var(--ui-fill-2); color: var(--ui-text);
+  .li.empty .crop { display: none; }                            /* nothing written: the row is just a box to type in */
+  .li.empty.tall > .k { padding-top: 10px; }
+  .text-in { width: 240px; max-width: 100%; height: 34px; border: 0; border-radius: 8px; background: var(--ui-fill-2); color: var(--ui-text);
     font: 15px/1.35 var(--ui-font); padding: 0 10px; }
   textarea.text-in { width: 100%; height: auto; min-height: 64px; padding: 8px 10px; resize: vertical; grid-column: 2 / -1; }
   .text-in::placeholder { color: var(--ui-sub); opacity: .8; }
@@ -254,6 +256,8 @@
     font: 600 15px/1 var(--ui-font); font-variant-numeric: tabular-nums; text-align: center; padding: 0 8px; }
   .field-in:focus { outline: 2px solid var(--ui-accent); outline-offset: 0; background: var(--ui-surface); }
   .field-in.low { background: var(--ui-amber-bg); box-shadow: inset 0 0 0 1.5px var(--ui-amber); }
+  .field-in::placeholder { color: var(--ui-sub); opacity: .8; font-weight: 400; font-size: 14px; }
+  .li.empty .field-in { width: 240px; max-width: 100%; text-align: left; padding: 0 10px; }
   .scan .seg button { height: 30px; padding: 0 14px; font-size: 13px; }
   .scan .seg button.low { box-shadow: inset 0 0 0 1.5px var(--ui-amber); }
   @media (max-width: 560px) {
@@ -480,7 +484,7 @@
         </div>
 
         <div>
-          <div class="card-head"><h3>Assessment</h3><span id="hwNote">Notes are copied as handwriting</span></div>
+          <div class="card-head"><h3>Assessment</h3><span id="hwNote">Handwriting is copied unless you type</span></div>
           <div class="card" id="assessCard"></div>
         </div>
 
@@ -1274,7 +1278,7 @@ const Scanner = (() => {
     box.className = 'text-in';
     box.dataset.text = key;
     box.setAttribute('aria-label', HW_LABELS[key]);
-    box.placeholder = 'Type to replace the handwriting';
+    box.placeholder = 'Type to replace';
     if (multiline) { box.rows = 2; row.appendChild(box); row.querySelector('.v').remove(); }
     else { box.autocomplete = 'off'; row.querySelector('.v').appendChild(box); }
     box.addEventListener('input', () => row.classList.toggle('typed', !!box.value.trim() && !!row.img));
@@ -1337,6 +1341,8 @@ const Scanner = (() => {
       if (!inp) continue;
       inp.value = v ? v.value : '';
       inp.classList.toggle('low', !!v && v.confidence < LOW_CONFIDENCE);
+      inp.closest('.li').classList.toggle('empty', !v);             // nothing written: just a box to type in
+      inp.placeholder = v ? '' : `Type the ${name === 'HN' ? 'HN' : name.toLowerCase()}`;
     }
     document.querySelectorAll('.scan .chk').forEach(b => {
       const c = res.checks?.[b.dataset.i];
@@ -1346,9 +1352,10 @@ const Scanner = (() => {
     document.querySelectorAll('[data-hw-row]').forEach(row => {
       const key = row.dataset.hwRow, img = res.images?.[key], crop = row.querySelector('.crop'), box = row.querySelector('[data-text]');
       row.img = img || null;
-      box.placeholder = img ? 'Type to replace the handwriting' : `Type the ${HW_LABELS[key].toLowerCase()} (optional)`;
+      box.placeholder = img ? 'Type to replace' : `Type the ${HW_LABELS[key].toLowerCase()}`;
       row.classList.toggle('typed', !!box.value.trim() && !!img);
-      if (!img) { crop.innerHTML = '<span class="none">Nothing written</span>'; return; }
+      row.classList.toggle('empty', !img);
+      if (!img) { crop.replaceChildren(); return; }
       const el = new Image();
       el.src = img.src;
       el.alt = `Handwritten ${HW_LABELS[key]}`;
