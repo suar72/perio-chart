@@ -110,7 +110,7 @@
   .sheet.no-markers .scanbar { display: none; }
   /* PDF export renders the sheet exactly as printed. */
   body.exporting .sheet { padding: 0; width: 287mm; margin: 0; box-shadow: none; }
-  body.exporting .boxes input.check, body.exporting .boxes input.numwarn { box-shadow: none; color: inherit; }
+  body.exporting .boxes input.numwarn { box-shadow: none; color: inherit; }
 
   header.top { display: flex; align-items: center; gap: 2mm 3mm; margin-bottom: 1.6mm; }
   header.top h1 { font-size: 15px; margin: 0; white-space: nowrap; letter-spacing: .2px; }
@@ -186,7 +186,6 @@
 
   /* ---------- scanner: a sheet over the chart (never printed) ---------- */
   [hidden] { display: none !important; }
-  .boxes input.check { box-shadow: inset 0 0 0 2.5px #e0a000; }   /* scanned value to double-check (screen only) */
   .scan { position: fixed; inset: 0; z-index: 20; font: 14px/1.4 var(--ui-font); color: var(--ui-text);
     background: rgba(0, 0, 0, .28); display: flex; justify-content: center; align-items: stretch; animation: scrim .25s ease-out; }
   .scan-sheet { position: relative; width: 100%; max-width: 1180px; margin: 20px; border-radius: 16px; background: var(--ui-bg);
@@ -317,7 +316,7 @@
 
   @media print {
     .scan, .toast, .pill, .page-hint, .appbar { display: none !important; }
-    .boxes input.check, .boxes input.numwarn { box-shadow: none; color: inherit; }
+    .boxes input.numwarn { box-shadow: none; color: inherit; }
     html, body { background: #fff; }
     .sheet { margin: 0; box-shadow: none; }
     tr.teeth td { cursor: default; }
@@ -795,7 +794,6 @@ function styleInput(i) {
 
 document.addEventListener('input', e => {
   if (!e.target.matches('table.chart input')) return;
-  e.target.classList.remove('check');
   const k = e.target.dataset.k, v = e.target.value;
   if (k === 'pd') e.target.value = v.replace(/\D/g, '');
   if (k === 'mob') e.target.value = v.replace(/[^0-3]/g, '').slice(0, 1);
@@ -1490,20 +1488,16 @@ const Scanner = (() => {
 
   /* ---------- apply ---------- */
   function apply() {
-    const values = L.fields.map(() => ''), flagged = new Set();
+    const values = L.fields.map(() => '');
     document.querySelectorAll('.inrow input').forEach(i => {
       if (i.disabled) return;
       values[+i.dataset.i] = i.value.trim();
-      if (i.classList.contains('low')) flagged.add(+i.dataset.i);
     });
     missing.clear();
     scanMissing.forEach(t => missing.add(t));
     build();
     restoreVals(values);
-    document.querySelectorAll('table.chart input').forEach((inp, k) => {
-      styleInput(inp);
-      inp.classList.toggle('check', flagged.has(k) && !!inp.value);
-    });
+    document.querySelectorAll('table.chart input').forEach(styleInput);   // already checked in the dialog: no second outline
     summarize();
     for (const name of HDR) {
       const v = document.querySelector(`.field-in[data-h="${name}"]`)?.value.trim();
@@ -1526,7 +1520,7 @@ const Scanner = (() => {
     window.scrollTo(0, 0);
     const filled = values.filter(Boolean).length;
     toast(`Filled ${filled} values${missing.size ? ` and ${missing.size} missing teeth` : ''} from the photo.` +
-      (flagged.size ? ' Values outlined in yellow need a second look.' : '') + ' Scan markers are hidden for printing.');
+      ' Scan markers are hidden for printing.');
   }
 
   let toastTimer;
