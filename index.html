@@ -189,7 +189,7 @@
   <button class="primary" onclick="window.print()">Print</button>
   <button onclick="printBlank()">Print blank</button>
   <button id="exportBtn" onclick="exportPdf()">Export PDF</button>
-  <button onclick="Scanner.open()">Scan filled sheet</button>
+  <button onclick="Scanner.open(true)">Scan filled sheet</button>
   <label class="ck" title="The six black squares and scan instructions. Needed only on sheets you will scan."><input type="checkbox" id="showMarkers" checked onchange="setMarkers(this.checked)">Scan markers</label>
   <button onclick="clearAll()">Clear all</button>
   <label>Numbering
@@ -855,7 +855,15 @@ const Scanner = (() => {
     $('scan').scrollTop = 0;
   }
 
-  function open() {
+  // pick: open the photo picker right away (must run inside the tap). Cancelling it from the
+  // toolbar returns to the chart.
+  let closeOnCancel = false;
+  function pickPhoto(fromToolbar = false) {
+    closeOnCancel = fromToolbar;
+    $('photo').click();
+  }
+
+  function open(pick = false) {
     $('scan').hidden = false;
     document.body.style.overflow = 'hidden';
     show('pick');
@@ -863,6 +871,7 @@ const Scanner = (() => {
     loadDeps().then(() => { $('scanStatus').textContent = ''; },
       e => { $('scanStatus').textContent = 'The scanner could not load (it needs internet the first time). ' + e.message; });
     $('drop').focus();
+    if (pick) pickPhoto(true);
   }
 
   function close() {
@@ -1144,7 +1153,9 @@ const Scanner = (() => {
   }
 
   /* ---------- wiring ---------- */
+  $('photo').addEventListener('cancel', () => { if (closeOnCancel) close(); closeOnCancel = false; });
   $('photo').addEventListener('change', e => {
+    closeOnCancel = false;
     const f = e.target.files[0];
     e.target.value = '';
     if (f) handle(URL.createObjectURL(f));
@@ -1161,8 +1172,8 @@ const Scanner = (() => {
   drop.tabIndex = 0;
   drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('photo').click(); } });
   $('scanClose').onclick = close;
-  $('retry').onclick = () => show('pick');
-  $('retake').onclick = () => show('pick');
+  $('retry').onclick = () => { show('pick'); pickPhoto(); };
+  $('retake').onclick = () => { show('pick'); pickPhoto(); };
   $('applyScan').onclick = apply;
   $('nextCheck').onclick = nextCheck;
   $('runReader').onclick = () => read($('reader').value);
