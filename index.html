@@ -99,7 +99,7 @@
   .marker path { fill: #000; }
   .scanbar { display: flex; align-items: center; justify-content: space-between; gap: 4mm; margin-top: 1.6mm; font-size: 8.5px; color: #555; }
   .scanbar span { flex: 1; text-align: center; }
-  .boxes input.numwarn { color: #b45309; box-shadow: inset 0 0 0 2.5px #f08c00; }   /* furcation written as a number */
+  .boxes input.numwarn, .boxes input.badval { color: #b45309; box-shadow: inset 0 0 0 2.5px #f08c00; }   /* value that doesn't make sense */
   .sheet { position: relative; }
   /* Handwriting copied from a scan (name, examiner, diagnosis, treatment plan), drawn over its fields. */
   .inklayer { position: absolute; left: 0; top: 0; width: 287mm; height: 100%; pointer-events: none; z-index: 2; }
@@ -110,7 +110,7 @@
   .sheet.no-markers .scanbar { display: none; }
   /* PDF export renders the sheet exactly as printed. */
   body.exporting .sheet { padding: 0; width: 287mm; margin: 0; box-shadow: none; }
-  body.exporting .boxes input.numwarn { box-shadow: none; color: inherit; }
+  body.exporting .boxes input.numwarn, body.exporting .boxes input.badval { box-shadow: none; color: inherit; }
 
   header.top { display: flex; align-items: center; gap: 2mm 3mm; margin-bottom: 1.6mm; }
   header.top h1 { font-size: 15px; margin: 0; white-space: nowrap; letter-spacing: .2px; }
@@ -279,7 +279,7 @@
   .scan .inrow input:focus { outline: 2px solid var(--ui-accent); outline-offset: 0; background: var(--ui-surface); }
   .scan .inrow input.read { color: var(--ui-accent); }
   .scan .inrow input.low { background: var(--ui-amber-bg); box-shadow: inset 0 0 0 1.5px var(--ui-amber); color: var(--ui-text); }
-  .scan .inrow input.numwarn { box-shadow: inset 0 0 0 1.5px #f08c00; color: var(--ui-amber); }
+  .scan .inrow input.numwarn, .scan .inrow input.badval { box-shadow: inset 0 0 0 1.5px #f08c00; color: var(--ui-amber); }
   .scan .inrow input:disabled { background: transparent; }
   .scan .teethbar { position: absolute; inset: 0; }
   .scan .teethbar button { position: absolute; top: 0; height: 100%; padding: 0; border: 0; background: transparent; cursor: pointer; }
@@ -316,7 +316,7 @@
 
   @media print {
     .scan, .toast, .pill, .page-hint, .appbar { display: none !important; }
-    .boxes input.numwarn { box-shadow: none; color: inherit; }
+    .boxes input.numwarn, .boxes input.badval { box-shadow: none; color: inherit; }
     html, body { background: #fff; }
     .sheet { margin: 0; box-shadow: none; }
     tr.teeth td { cursor: default; }
@@ -350,7 +350,7 @@
       <button class="btn primary" onclick="Scanner.open(true)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.4-2h5.8l1.4 2h2.2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.4"/></svg>Scan sheet</button>
     </div>
   </div>
-  <div class="notice" id="furcWarn" role="status" hidden><div><span id="furcWarnText"></span><button class="btn" onclick="convertFurc()">Convert to I–III</button></div></div>
+  <div class="notice" id="valueWarn" role="status" hidden><div><span id="valueWarnText"></span><button class="btn" id="furcConvert" onclick="convertFurc()">Convert to I–III</button></div></div>
 </header>
 <select id="numbering" onchange="build()" hidden aria-hidden="true">
   <option value="fdi">FDI (11–48)</option>
@@ -762,23 +762,40 @@ function summarize() {
   set('s4', pd.filter(v => v >= 4).length, pd.length > 0);
   set('s6', pd.filter(v => v >= 6).length, pd.length > 0);
   set('sF', new Set(furc.map(i => i.closest('td').dataset.t)).size, furc.length > 0);
-  checkFurc();
+  checkValues();
 }
 
-// Furcation is graded in Roman numerals (I, II, III). Numbers are accepted but flagged, with a one-tap fix.
+// Values that don't make sense get an orange outline (screen only) and a notice in the app bar:
+// PD over 15 mm, mobility over 3 (Miller 0-3), and furcation written as a number instead of I, II, III
+// (accepted, with a one-tap fix).
 const FURC_TIP = 'Furcation should be a Roman numeral: I, II or III';
 const toRoman = v => v.replace(/[1-3]/g, d => 'I'.repeat(+d)).slice(0, 3);
-function checkFurc() {
-  let n = 0;
-  document.querySelectorAll('table.chart input[data-k=furc]').forEach(i => {
-    const bad = /\d/.test(i.value) && !i.closest('td.missing');
-    i.classList.toggle('numwarn', bad);
-    i.title = bad ? FURC_TIP : '';
-    if (bad) n++;
+function valueIssue(kind, v) {
+  if (v === '') return null;
+  if (kind === 'pd' && +v > 15) return { cls: 'badval', tip: 'PD over 15 mm: check this value', key: 'pd' };
+  if (kind === 'mob' && +v > 3) return { cls: 'badval', tip: 'Mobility is graded 0 to 3', key: 'mob' };
+  if (kind === 'furc' && /\d/.test(v)) return { cls: 'numwarn', tip: FURC_TIP, key: 'furc' };
+  return null;
+}
+function markIssue(inp, issue) {
+  inp.classList.toggle('numwarn', issue?.cls === 'numwarn');
+  inp.classList.toggle('badval', issue?.cls === 'badval');
+  inp.title = issue ? issue.tip : '';
+}
+function checkValues() {
+  const n = { pd: 0, mob: 0, furc: 0 };
+  document.querySelectorAll('table.chart input').forEach(i => {
+    const issue = i.closest('td.missing') ? null : valueIssue(i.dataset.k, i.value.trim());
+    markIssue(i, issue);
+    if (issue) n[issue.key]++;
   });
-  document.getElementById('furcWarn').hidden = !n;
-  document.getElementById('furcWarnText').textContent =
-    `${n} furcation ${n === 1 ? 'entry is a number' : 'entries are numbers'}. Use I, II or III.`;
+  const parts = [];
+  if (n.pd) parts.push(`${n.pd} PD over 15 mm`);
+  if (n.mob) parts.push(`${n.mob} mobility over 3`);
+  if (n.furc) parts.push(`${n.furc} furcation written as ${n.furc === 1 ? 'a number' : 'numbers'} (use I, II or III)`);
+  document.getElementById('valueWarn').hidden = !parts.length;
+  document.getElementById('valueWarnText').textContent = parts.length ? 'Check: ' + parts.join(' · ') : '';
+  document.getElementById('furcConvert').hidden = !n.furc;
 }
 function convertFurc() {
   document.querySelectorAll('table.chart input.numwarn').forEach(i => { i.value = toRoman(i.value); });
@@ -789,14 +806,14 @@ function styleInput(i) {
   if (i.dataset.k !== 'pd') return;
   const v = parseInt(i.value, 10);
   i.classList.toggle('deep', v >= 4 && v < 6);
-  i.classList.toggle('vdeep', v >= 6);
+  i.classList.toggle('vdeep', v >= 6 && v <= 15);   // over 15 isn't a deep pocket, it's a value to check
 }
 
 document.addEventListener('input', e => {
   if (!e.target.matches('table.chart input')) return;
   const k = e.target.dataset.k, v = e.target.value;
   if (k === 'pd') e.target.value = v.replace(/\D/g, '');
-  if (k === 'mob') e.target.value = v.replace(/[^0-3]/g, '').slice(0, 1);
+  if (k === 'mob') e.target.value = v.replace(/\D/g, '').slice(0, 1);
   if (k === 'furc') e.target.value = v.toUpperCase().replace(/[^I1-3]/g, '');
   if (k === 'prog') e.target.value = v.toUpperCase().replace(/[^GFPQH]/g, '').slice(0, 1);
   styleInput(e.target);
@@ -1418,19 +1435,14 @@ const Scanner = (() => {
     updateCount();
   }
 
-  function flagFurc(i) {
-    const bad = i.dataset.k === 'furc' && /\d/.test(i.value);
-    i.classList.toggle('numwarn', bad);
-    i.title = bad ? FURC_TIP : '';
-  }
+  const flagValue = i => markIssue(i, valueIssue(i.dataset.k, i.value.trim()));
 
   function updateCount() {
     const ins = [...document.querySelectorAll('.inrow input:not(:disabled)')];
     const filled = ins.filter(i => i.value.trim()).length;
     const lows = document.querySelectorAll('.inrow input.low:not(:disabled), .field-in.low').length;
-    const nums = ins.filter(i => i.classList.contains('numwarn')).length;
-    $('countStatus').textContent = `${filled} values · ${32 - scanMissing.size} teeth` +
-      (nums ? ` · ${nums} furcation as number` : '');
+    const odd = ins.filter(i => i.classList.contains('numwarn') || i.classList.contains('badval')).length;
+    $('countStatus').textContent = `${filled} values · ${32 - scanMissing.size} teeth` + (odd ? ` · ${odd} to correct` : '');
     $('lowCount').textContent = lows;
     $('nextCheck').hidden = !lows || $('scanReview').hidden;
     $('nextCheck').disabled = !lows;
@@ -1464,7 +1476,7 @@ const Scanner = (() => {
       inp.value = value;
       inp.dataset.conf = confidence.toFixed(3);
       inp.classList.add('read');
-      flagFurc(inp);
+      flagValue(inp);
       if (value) n++;
       if (confidence < LOW_CONFIDENCE) { inp.classList.add('low'); low++; }
     }
@@ -1571,11 +1583,11 @@ const Scanner = (() => {
     if (!i.matches('.inrow input')) return;
     const k = i.dataset.k, v = i.value;
     if (k === 'pd') i.value = v.replace(/\D/g, '');
-    if (k === 'mob') i.value = v.replace(/[^0-3]/g, '').slice(0, 1);
+    if (k === 'mob') i.value = v.replace(/\D/g, '').slice(0, 1);
     if (k === 'furc') i.value = v.toUpperCase().replace(/[^I1-3]/g, '');
     if (k === 'prog') i.value = v.toUpperCase().replace(/[^GFPQH]/g, '').slice(0, 1);
     i.classList.remove('low', 'read');
-    flagFurc(i);
+    flagValue(i);
     updateCount();
   });
   // Enter moves to the next box, like Tab.
