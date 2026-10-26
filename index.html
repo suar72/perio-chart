@@ -12,24 +12,87 @@
     --line: #9a9a9a;
     --soft: #b9b9b9;
     --na: #e6e6e6;
-    --accent: #0b5cad;
+    --accent: #0a66d6;
     --warn: #c62828;
+    /* App chrome (screen only; the printed sheet keeps its own colours above). Apple-like neutrals. */
+    --ui-bg: #f5f5f7;
+    --ui-surface: #ffffff;
+    --ui-bar: rgba(250, 250, 252, .78);
+    --ui-fill: rgba(118, 118, 128, .12);
+    --ui-fill-2: rgba(118, 118, 128, .07);
+    --ui-text: #1d1d1f;
+    --ui-sub: #6e6e73;
+    --ui-sep: rgba(60, 60, 67, .14);
+    --ui-accent: #0a66d6;
+    --ui-amber: #b26b00;
+    --ui-amber-bg: #fff3d1;
+    --ui-red: #d70015;
+    --ui-shadow: 0 1px 2px rgba(0, 0, 0, .05), 0 6px 24px rgba(0, 0, 0, .07);
+    --ui-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ui-bg: #111113;
+      --ui-surface: #1c1c1e;
+      --ui-bar: rgba(28, 28, 30, .74);
+      --ui-fill: rgba(118, 118, 128, .26);
+      --ui-fill-2: rgba(118, 118, 128, .16);
+      --ui-text: #f5f5f7;
+      --ui-sub: #a1a1a6;
+      --ui-sep: rgba(84, 84, 88, .55);
+      --ui-accent: #3b8bff;
+      --ui-amber: #ffb340;
+      --ui-amber-bg: rgba(255, 179, 64, .16);
+      --ui-red: #ff453a;
+      --ui-shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 30px rgba(0, 0, 0, .35);
+    }
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; background: #f2f2f2; color: var(--ink);
-    font: 10px/1.25 -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  html, body { margin: 0; background: var(--ui-bg); color: var(--ink);
+    font: 10px/1.25 -apple-system, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
 
-  /* ---------- screen toolbar ---------- */
-  .toolbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px;
-    align-items: center; padding: 8px 16px; background: #fff; border-bottom: 1px solid #ddd; font-size: 13px; }
-  .toolbar button, .toolbar select { font: inherit; padding: 5px 10px; border: 1px solid #bbb;
-    border-radius: 6px; background: #fff; cursor: pointer; }
-  .toolbar button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .toolbar .hint { color: #666; font-size: 12px; margin-left: auto; }
+  /* ---------- app bar (screen only) ---------- */
+  .appbar { position: sticky; top: 0; z-index: 10; font: 13px/1.3 var(--ui-font); color: var(--ui-text);
+    background: var(--ui-bar); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: 0 .5px 0 var(--ui-sep); }
+  .appbar-in { max-width: 1240px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
+    padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); }
+  .app-title { font-size: 17px; font-weight: 600; letter-spacing: -.01em; margin: 0 auto 0 0; white-space: nowrap; }
+  .group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .btn { font: 500 13px/1 var(--ui-font); height: 32px; padding: 0 14px; border: 0; border-radius: 8px; cursor: pointer;
+    background: var(--ui-fill); color: var(--ui-text); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    transition: transform .1s ease-out, background-color .15s; -webkit-tap-highlight-color: transparent; }
+  .btn:hover { background: rgba(118, 118, 128, .18); }
+  .btn:active { transform: scale(.97); }
+  .btn:focus-visible, .seg button:focus-visible, .switch input:focus-visible + .track { outline: 3px solid color-mix(in srgb, var(--ui-accent) 45%, transparent); outline-offset: 1px; }
+  .btn.primary { background: var(--ui-accent); color: #fff; font-weight: 600; }
+  .btn.primary:hover { background: color-mix(in srgb, var(--ui-accent) 88%, #000); }
+  .btn.plain { background: transparent; color: var(--ui-accent); padding: 0 6px; }
+  .btn.plain:hover { background: var(--ui-fill-2); }
+  .btn:disabled { opacity: .4; cursor: default; transform: none; }
+  .btn svg { width: 16px; height: 16px; flex: none; }
+  /* Segmented control */
+  .seg { display: inline-flex; padding: 2px; border-radius: 9px; background: var(--ui-fill); gap: 2px; }
+  .seg button { font: 500 12.5px/1 var(--ui-font); height: 28px; padding: 0 11px; border: 0; border-radius: 7px; background: transparent;
+    color: var(--ui-text); cursor: pointer; transition: background-color .15s, box-shadow .15s; -webkit-tap-highlight-color: transparent; }
+  .seg button[aria-pressed="true"] { background: var(--ui-surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .12), 0 0 0 .5px rgba(0, 0, 0, .04); font-weight: 600; }
+  /* Switch */
+  .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font: 13px/1 var(--ui-font); color: var(--ui-text); user-select: none; }
+  .switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .switch .track { position: relative; width: 38px; height: 23px; border-radius: 99px; background: var(--ui-fill); transition: background-color .2s; flex: none; }
+  .switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 19px; height: 19px; border-radius: 50%; background: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, .2); transition: transform .25s cubic-bezier(.3, .7, .4, 1); }
+  .switch input:checked + .track { background: #30c759; }
+  .switch input:checked + .track::after { transform: translateX(15px); }
+  .notice { max-width: 1240px; margin: 0 auto; padding: 0 16px 10px; display: flex; }
+  .notice > div { display: inline-flex; align-items: center; gap: 10px; padding: 6px 6px 6px 12px; border-radius: 10px;
+    background: var(--ui-amber-bg); color: var(--ui-amber); font: 500 13px/1.3 var(--ui-font); }
+  .notice .btn { height: 26px; font-size: 12.5px; background: var(--ui-surface); color: var(--ui-amber); }
+  .page-hint { max-width: 1240px; margin: 14px auto 0; padding: 0 16px; text-align: center; font: 12.5px/1.4 var(--ui-font); color: var(--ui-sub); }
 
   /* ---------- sheet ---------- */
   .sheet { width: 287mm; margin: 12px auto; padding: 0; background: #fff; }
-  @media screen { .sheet { padding: 6mm; width: calc(287mm + 12mm); box-shadow: 0 1px 6px rgba(0,0,0,.15); } }
+  @media screen { .sheet { padding: 6mm; width: calc(287mm + 12mm); margin: 14px auto 40px; border-radius: 6px; box-shadow: var(--ui-shadow); } }
   /* Scan markers (ArUco 4x4, ids 0-5): 4 corners + middle of top and bottom edges. */
   .marker { flex: none; width: 9mm; height: 9mm; }
   .marker svg { display: block; width: 100%; height: 100%; }
@@ -37,8 +100,6 @@
   .scanbar { display: flex; align-items: center; justify-content: space-between; gap: 4mm; margin-top: 1.6mm; font-size: 8.5px; color: #555; }
   .scanbar span { flex: 1; text-align: center; }
   .boxes input.numwarn { color: #b45309; box-shadow: inset 0 0 0 2.5px #f08c00; }   /* furcation written as a number */
-  .furcwarn { display: inline-flex; align-items: center; gap: 6px; padding: 4px 4px 4px 10px; border-radius: 8px; background: #fff1dc; color: #8a4b00; font-size: 12.5px; }
-  .toolbar .furcwarn button { padding: 3px 9px; font-size: 12.5px; border-color: #e0a45c; }
   .sheet { position: relative; }
   /* Handwriting copied from a scan (name, examiner, diagnosis, treatment plan), drawn over its fields. */
   .inklayer { position: absolute; left: 0; top: 0; width: 287mm; height: 100%; pointer-events: none; z-index: 2; }
@@ -123,111 +184,173 @@
   .opts .sep { width: 2mm; }
 
 
-  /* ---------- scanner (full-screen panel over the chart; never printed) ---------- */
+  /* ---------- scanner: a sheet over the chart (never printed) ---------- */
   [hidden] { display: none !important; }
   .boxes input.check { box-shadow: inset 0 0 0 2.5px #e0a000; }   /* scanned value to double-check (screen only) */
-  .scan { position: fixed; inset: 0; z-index: 20; background: #eef0f3; overflow: auto; font-size: 14px; line-height: 1.4; }
-  .scan button { font: inherit; padding: 8px 14px; border: 1px solid #b9bfc9; border-radius: 8px; background: #fff; color: var(--ink); cursor: pointer; }
-  .scan button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-  .scan button:disabled { opacity: .5; cursor: default; }
-  .scan select { font: inherit; padding: 6px 8px; border: 1px solid #b9bfc9; border-radius: 8px; background: #fff; }
-  .scan-head { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #fff; border-bottom: 1px solid #dde1e6; }
-  .scan-head h2 { font-size: 16px; margin: 0; }
-  .scan-steps { display: flex; gap: 8px; flex: 1; justify-content: center; font-size: 13px; color: #8a919c; }
-  .scan-steps span.on { color: var(--accent); font-weight: 700; }
-  .scan-steps span.done { color: #1e7b45; }
-  .scan-body { max-width: 1180px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
-  .scan-card { background: #fff; border: 1px solid #dde1e6; border-radius: 12px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+  .scan { position: fixed; inset: 0; z-index: 20; font: 14px/1.4 var(--ui-font); color: var(--ui-text);
+    background: rgba(0, 0, 0, .28); display: flex; justify-content: center; align-items: stretch; animation: scrim .25s ease-out; }
+  .scan-sheet { position: relative; width: 100%; max-width: 1180px; margin: 20px; border-radius: 16px; background: var(--ui-bg);
+    overflow: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, .3); animation: rise .35s cubic-bezier(.2, .8, .2, 1); overscroll-behavior: contain; }
+  @keyframes scrim { from { background: rgba(0, 0, 0, 0); } }
+  @keyframes rise { from { transform: translateY(24px) scale(.985); opacity: 0; } }
+  @media (max-width: 720px) { .scan-sheet { margin: 0; border-radius: 0; } }
+  @media (prefers-reduced-motion: reduce) { .scan, .scan-sheet { animation: none; } }
+  .scan-nav { position: sticky; top: 0; z-index: 4; display: grid; grid-template-columns: minmax(64px, 1fr) minmax(0, auto) minmax(64px, 1fr); align-items: center; gap: 8px;
+    padding: 10px 12px; background: var(--ui-bar); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: 0 .5px 0 var(--ui-sep); }
+  .scan-nav .btn.plain { font-size: 15px; height: 34px; }
+  .scan-nav .btn.primary { justify-self: end; height: 32px; font-size: 14px; padding: 0 16px; }
+  .scan-nav .title { text-align: center; line-height: 1.2; min-width: 0; }
+  .scan-nav .title > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .scan-nav h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+  .scan-nav .sub { font-size: 12px; color: var(--ui-sub); font-variant-numeric: tabular-nums; }
+  .scan-body { max-width: 1080px; margin: 0 auto; padding: 18px 16px 96px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .review { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }   /* wide strips scroll inside their card, never widen the page */
+  .scan .muted { color: var(--ui-sub); margin: 0; }
   .scan .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  .scan .muted { color: #5d6470; margin: 0; }
-  .drop { border: 2px dashed #b9c0ca; border-radius: 12px; padding: 36px 16px; text-align: center; display: grid; gap: 8px; justify-items: center; cursor: pointer; }
-  .drop:hover, .drop.over { border-color: var(--accent); background: #f1f6fd; }
-  .drop strong { font-size: 17px; }
-  .drop .cam { font-size: 30px; line-height: 1; }
-  .tips { margin: 0; padding-left: 18px; color: #5d6470; font-size: 13px; display: grid; gap: 3px; }
-  .spinner { width: 18px; height: 18px; border: 3px solid #cfd6e0; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+
+  /* Empty, progress and error states: centred, calm */
+  .state { display: grid; justify-items: center; text-align: center; gap: 12px; padding: 48px 16px; }
+  .state .glyph { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--ui-fill-2); color: var(--ui-accent); }
+  .state .glyph svg { width: 30px; height: 30px; }
+  .state.error .glyph { color: var(--ui-amber); background: var(--ui-amber-bg); }
+  .state h3 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.015em; }
+  .state p { margin: 0; max-width: 46ch; color: var(--ui-sub); }
+  .state .btn.primary { height: 40px; padding: 0 20px; font-size: 15px; border-radius: 10px; margin-top: 4px; }
+  .drop { border-radius: 16px; border: 1.5px dashed transparent; transition: border-color .15s, background-color .15s; }
+  .drop.over { border-color: var(--ui-accent); background: color-mix(in srgb, var(--ui-accent) 6%, transparent); }
+  .tips { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; color: var(--ui-sub); font-size: 13px; }
+  .tips li { display: flex; gap: 8px; align-items: center; justify-content: center; }
+  .tips svg { width: 15px; height: 15px; flex: none; }
+  .spinner { width: 28px; height: 28px; border: 3px solid var(--ui-fill); border-top-color: var(--ui-accent); border-radius: 50%; animation: spin .9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
-  .chip { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; background: #eef0f3; color: #3b4250; }
-  .chip.ok { background: #e3f3e9; color: #1e7b45; }
-  .chip.warn { background: #fdf1dc; color: #9a5b00; }
-  .chip.bad { background: #fde5e5; color: var(--warn); }
+
+  /* Review: grouped cards */
+  .card { background: var(--ui-surface); border-radius: 14px; box-shadow: 0 .5px 0 var(--ui-sep), 0 1px 3px rgba(0, 0, 0, .04); min-width: 0; overflow: hidden; }
+  .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 4px 8px; }
+  .card-head h3 { margin: 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--ui-sub); }
+  .card-head span { font-size: 12.5px; color: var(--ui-sub); }
+  .alert { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 12px; background: var(--ui-amber-bg); color: var(--ui-amber); font-weight: 500; }
+  .li { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 14px; min-height: 52px; }
+  .li + .li { box-shadow: inset 0 .5px 0 var(--ui-sep); }
+  .li > .k { font-weight: 500; }
+  .li .crop { height: 38px; min-width: 0; display: flex; align-items: center; }
+  .li .crop canvas, .li .crop img { max-height: 38px; max-width: 100%; border-radius: 6px; background: #fff; }
+  .li .crop canvas, .scan .strip canvas { filter: brightness(1.07) contrast(1.08); }   /* photo crops read as clean paper */
+  .li .crop .none { color: var(--ui-sub); font-size: 13px; }
+  .li.tall { grid-template-columns: 92px minmax(0, 1fr) auto; }
+  .li.tall .crop { height: auto; }
+  .li.tall .crop img { max-height: 96px; width: auto; max-width: 100%; }
+  .field-in { width: 132px; height: 34px; border: 0; border-radius: 8px; background: var(--ui-fill-2); color: var(--ui-text);
+    font: 600 15px/1 var(--ui-font); font-variant-numeric: tabular-nums; text-align: center; padding: 0 8px; }
+  .field-in:focus { outline: 2px solid var(--ui-accent); outline-offset: 0; background: var(--ui-surface); }
+  .field-in.low { background: var(--ui-amber-bg); box-shadow: inset 0 0 0 1.5px var(--ui-amber); }
+  .scan .seg button { height: 30px; padding: 0 14px; font-size: 13px; }
+  .scan .seg button.low { box-shadow: inset 0 0 0 1.5px var(--ui-amber); }
+  @media (max-width: 560px) {
+    .li { grid-template-columns: 1fr auto; }
+    .li .crop { grid-column: 1 / -1; grid-row: 2; }
+    .field-in { width: 112px; }
+  }
+
+  /* Chart strips: the photo row with the read values lined up beneath */
+  .strips { padding: 12px 14px 6px; }
   .scan .scroll { overflow-x: auto; }
-  .scan .jaw { min-width: 960px; display: grid; gap: 2px; }
-  .scan .strip { position: relative; }
+  .scan .jaw { min-width: 940px; display: grid; gap: 2px; }
+  .scan .strip { position: relative; border-radius: 4px; overflow: hidden; }
   .scan .strip canvas { display: block; width: 100%; height: auto; }
-  .scan .inrow { position: relative; height: 30px; margin-bottom: 6px; }
-  .scan .inrow input { position: absolute; top: 0; height: 28px; padding: 0; text-align: center; font: 700 15px/1 -apple-system, Arial, sans-serif;
-    border: 1px solid #c3c8d0; border-radius: 4px; background: #fff; color: var(--ink); }
-  .scan .inrow input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
-  .scan .inrow input.read { color: var(--accent); }
-  .scan .inrow input.low { background: #fff3c4; border-color: #d99a00; }
-  .scan .inrow input.numwarn { border-color: #f08c00; box-shadow: inset 0 0 0 1.5px #f08c00; color: #b45309; }
-  .scan .inrow input:disabled { background: repeating-linear-gradient(45deg, #eee 0 3px, #f8f8f8 3px 6px); border-color: #e2e2e2; }
-  .scan .hdrrow { position: relative; height: 30px; margin-bottom: 6px; }
-  .scan .hdrrow input { position: absolute; top: 0; height: 28px; padding: 0 4px; text-align: center; font: 700 14px/1 -apple-system, Arial, sans-serif;
-    border: 1px solid #c3c8d0; border-radius: 4px; background: #fff; color: var(--accent); min-width: 0; }
-  .scan .hdrrow input.low { background: #fff3c4; border-color: #d99a00; }
-  .scan .chk { padding: 5px 12px; border-radius: 99px; }
-  .scan .chk[aria-pressed="true"] { background: #e8f1fc; border-color: var(--accent); color: var(--accent); font-weight: 600; }
-  .scan .chk.low { box-shadow: 0 0 0 2px #e0a000; }
-  .scan .hw { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
-  .scan .hw figure { margin: 0; border: 1px solid #dde1e6; border-radius: 8px; padding: 8px; display: grid; gap: 6px; background: #fff; }
-  .scan .hw img { width: 100%; height: auto; max-height: 120px; object-fit: contain; object-position: left; background: #fafbfc; }
-  .scan .hw figcaption { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 600; }
-  .scan .hw label { font-weight: 400; color: #5d6470; display: inline-flex; gap: 4px; align-items: center; }
-  .scan h3 { font-size: 13px; margin: 6px 0 0; text-transform: uppercase; letter-spacing: .4px; color: #5d6470; }
+  .scan .inrow { position: relative; height: 30px; margin: 3px 0 8px; }
+  .scan .inrow input { position: absolute; top: 0; height: 28px; padding: 0; text-align: center; font: 600 14px/1 var(--ui-font);
+    font-variant-numeric: tabular-nums; border: 0; border-radius: 6px; background: var(--ui-fill-2); color: var(--ui-text); transition: background-color .15s; }
+  .scan .inrow input:focus { outline: 2px solid var(--ui-accent); outline-offset: 0; background: var(--ui-surface); }
+  .scan .inrow input.read { color: var(--ui-accent); }
+  .scan .inrow input.low { background: var(--ui-amber-bg); box-shadow: inset 0 0 0 1.5px var(--ui-amber); color: var(--ui-text); }
+  .scan .inrow input.numwarn { box-shadow: inset 0 0 0 1.5px #f08c00; color: var(--ui-amber); }
+  .scan .inrow input:disabled { background: transparent; }
   .scan .teethbar { position: absolute; inset: 0; }
-  .scan .teethbar button { position: absolute; top: 0; height: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; }
-  .scan .teethbar button:hover { background: rgba(11, 92, 173, .08); }
-  .scan .teethbar button.off { background: rgba(198, 40, 40, .18); }
-  .scan .teethbar button.off::after { content: "✕"; color: var(--warn); font-size: 18px; font-weight: 700; }
-  .scan details canvas { width: 100%; height: auto; border: 1px solid #dde1e6; margin-top: 8px; }
-  .scan details summary { cursor: pointer; color: #5d6470; }
-  .scan-foot { position: sticky; bottom: 0; z-index: 3; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 16px; background: #fff; border-top: 1px solid #dde1e6; }
-  .scan-foot .muted { flex: 1; }
-  .toast { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 30; max-width: min(640px, calc(100vw - 32px));
-    background: #16181d; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.25); display: flex; gap: 12px; align-items: center; }
-  .toast button { background: none; border: 0; color: #9cc3ff; font: inherit; cursor: pointer; padding: 0; }
+  .scan .teethbar button { position: absolute; top: 0; height: 100%; padding: 0; border: 0; background: transparent; cursor: pointer; }
+  .scan .teethbar button:hover { background: color-mix(in srgb, var(--ui-accent) 10%, transparent); }
+  .scan .teethbar button.off { background: rgba(215, 0, 21, .14); }
+  .scan .teethbar button.off::after { content: "✕"; color: var(--ui-red); font-size: 17px; font-weight: 700; }
+  .more { padding: 4px 4px 0; }
+  .more summary { cursor: pointer; color: var(--ui-sub); font-size: 13px; list-style: none; }
+  .more summary::before { content: "›"; display: inline-block; width: 1em; transition: transform .2s; }
+  .more[open] summary::before { transform: rotate(90deg); }
+  .more .row { margin-top: 10px; }
+  .more canvas { width: 100%; height: auto; border-radius: 8px; margin-top: 10px; }
+  .more select { font: 13px var(--ui-font); height: 30px; border-radius: 8px; border: 0; background: var(--ui-fill); color: var(--ui-text); padding: 0 8px; }
+
+  /* Floating "review next" pill */
+  .pill { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 25;
+    display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border: 0; border-radius: 99px; cursor: pointer;
+    font: 600 14px/1 var(--ui-font); color: var(--ui-text); background: var(--ui-bar);
+    -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: 0 0 0 .5px var(--ui-sep), 0 8px 24px rgba(0, 0, 0, .14); transition: transform .1s ease-out; }
+  .pill:active { transform: translateX(-50%) scale(.97); }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ui-amber); }
+  .pill b { font-variant-numeric: tabular-nums; color: var(--ui-amber); }
+
+  /* Toast (HUD) */
+  .toast { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 30;
+    max-width: min(560px, calc(100vw - 32px)); display: flex; gap: 14px; align-items: center; padding: 12px 14px 12px 16px; border-radius: 14px;
+    font: 14px/1.35 var(--ui-font); color: #fff; background: rgba(30, 30, 32, .88);
+    -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); box-shadow: 0 10px 30px rgba(0, 0, 0, .25); animation: rise .3s cubic-bezier(.2, .8, .2, 1); }
+  .toast button { background: none; border: 0; color: #64a8ff; font: 600 14px var(--ui-font); cursor: pointer; padding: 0; }
+  @media (prefers-reduced-transparency: reduce) {
+    .appbar, .scan-nav, .pill { background: var(--ui-surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  }
 
   @media print {
-    .scan, .toast { display: none !important; }
+    .scan, .toast, .pill, .page-hint, .appbar { display: none !important; }
     .boxes input.check, .boxes input.numwarn { box-shadow: none; color: inherit; }
     html, body { background: #fff; }
-    .toolbar { display: none; }
     .sheet { margin: 0; box-shadow: none; }
     tr.teeth td { cursor: default; }
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
-  @media screen and (max-width: 1150px) { body { overflow-x: auto; } }
+  /* The paper is wider than a phone: it scrolls sideways on its own, so the page (and overlays) stay screen-width. */
+  @media screen { .desk { overflow-x: auto; overscroll-behavior-x: contain; padding: 0 16px; } }
 </style>
 </head>
 <body>
 
-<div class="toolbar">
-  <button class="primary" onclick="window.print()">Print</button>
-  <button onclick="printBlank()">Print blank</button>
-  <button id="exportBtn" onclick="exportPdf()">Export PDF</button>
-  <button onclick="Scanner.open(true)">Scan filled sheet</button>
-  <label class="ck" title="The six black squares and scan instructions. Needed only on sheets you will scan."><input type="checkbox" id="showMarkers" checked onchange="setMarkers(this.checked)">Scan markers</label>
-  <button onclick="clearAll()">Clear all</button>
-  <label>Numbering
-    <select id="numbering" onchange="build()">
-      <option value="fdi">FDI (11–48)</option>
-      <option value="uni">Universal (1–32)</option>
-    </select>
-  </label>
-  <label>Paper
-    <select id="paper" onchange="setPaper(this.value)">
-      <option value="A5">A5</option>
-      <option value="A4">A4</option>
-      <option value="letter">Letter</option>
-    </select>
-  </label>
-  <span class="furcwarn" id="furcWarn" role="status" hidden>⚠ <span id="furcWarnText"></span> <button onclick="convertFurc()">Convert to I–III</button></span>
-  <span class="hint">Tap a tooth number or drawing to strike out a missing tooth. Empty boxes print blank. Scan filled sheet reads a photo of a handwritten chart.</span>
-</div>
+<header class="appbar">
+  <div class="appbar-in">
+    <h1 class="app-title">Periodontal Chart</h1>
+    <div class="group">
+      <div class="seg" data-for="paper" role="group" aria-label="Paper size">
+        <button data-v="A5">A5</button><button data-v="A4">A4</button><button data-v="letter">Letter</button>
+      </div>
+      <div class="seg" data-for="numbering" role="group" aria-label="Tooth numbering">
+        <button data-v="fdi">FDI</button><button data-v="uni">Universal</button>
+      </div>
+      <label class="switch" title="The six black squares and scan instructions. Needed only on sheets you will scan.">
+        <input type="checkbox" id="showMarkers" checked onchange="setMarkers(this.checked)"><span class="track"></span>Scan markers
+      </label>
+    </div>
+    <div class="group">
+      <button class="btn plain" onclick="clearAll()">Clear</button>
+      <button class="btn" onclick="printBlank()">Print blank</button>
+      <button class="btn" onclick="window.print()">Print</button>
+      <button class="btn" id="exportBtn" onclick="exportPdf()">Export PDF</button>
+      <button class="btn primary" onclick="Scanner.open(true)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.4-2h5.8l1.4 2h2.2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.4"/></svg>Scan sheet</button>
+    </div>
+  </div>
+  <div class="notice" id="furcWarn" role="status" hidden><div><span id="furcWarnText"></span><button class="btn" onclick="convertFurc()">Convert to I–III</button></div></div>
+</header>
+<select id="numbering" onchange="build()" hidden aria-hidden="true">
+  <option value="fdi">FDI (11–48)</option>
+  <option value="uni">Universal (1–32)</option>
+</select>
+<select id="paper" onchange="setPaper(this.value)" hidden aria-hidden="true">
+  <option value="A5">A5</option>
+  <option value="A4">A4</option>
+  <option value="letter">Letter</option>
+</select>
+<p class="page-hint">Tap a tooth number to mark it missing. Empty boxes print blank.</p>
 
+<main class="desk">
 <div class="sheet">
   <div class="inklayer" id="inkLayer" aria-hidden="true"></div>
   <header class="top">
@@ -283,74 +406,89 @@
     <div class="marker" data-id="3"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div><span>To scan: keep all six black squares in the photo, sheet flat, good light.</span><div class="marker" data-id="4"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div><span>Scan it with “Scan filled sheet” at suar72.github.io/perio-chart</span><div class="marker" data-id="5"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div>
   </div>
 </div>
+</main>
 
 <div class="scan" id="scan" role="dialog" aria-modal="true" aria-labelledby="scanTitle" hidden>
-  <div class="scan-head">
-    <h2 id="scanTitle">Scan a filled sheet</h2>
-    <div class="scan-steps" aria-hidden="true">
-      <span data-step="pick">1 Photo</span><span>›</span><span data-step="review">2 Check</span><span>›</span><span data-step="apply">3 Apply</span>
-    </div>
-    <button id="scanClose">Close</button>
+ <div class="scan-sheet" id="scanSheet">
+  <div class="scan-nav">
+    <button class="btn plain" id="scanClose">Cancel</button>
+    <div class="title"><h2 id="scanTitle">Scan Sheet</h2><div class="sub" id="countStatus"></div></div>
+    <button class="btn primary" id="applyScan" disabled>Apply</button>
   </div>
 
   <div class="scan-body">
-    <section class="scan-card" id="scanPick">
-      <label class="drop" id="drop">
+    <section id="scanPick">
+      <label class="state drop" id="drop">
         <input id="photo" type="file" accept="image/*" hidden>
-        <span class="cam" aria-hidden="true">📷</span>
-        <strong>Take or choose a photo of the filled sheet</strong>
-        <span class="muted">or drop an image here</span>
+        <span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.4-2h5.8l1.4 2h2.2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.4"/></svg></span>
+        <h3>Photograph the filled sheet</h3>
+        <p>Any angle works, as long as all six black squares are in the photo.</p>
+        <span class="btn primary">Take or Choose Photo</span>
+        <ul class="tips">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>Lay it flat in good light, without glare</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Read on this device; the photo isn’t uploaded</li>
+        </ul>
+        <p class="muted" id="scanStatus"></p>
       </label>
-      <ul class="tips">
-        <li>Lay the sheet flat in good light, without glare.</li>
-        <li>Keep all six black squares in the photo. Any angle is fine.</li>
-        <li>The photo is read on this device and is not uploaded.</li>
-      </ul>
-      <p class="muted" id="scanStatus"></p>
     </section>
 
-    <section class="scan-card" id="scanWork" hidden>
-      <div class="row"><span class="spinner" aria-hidden="true"></span><strong id="workText">Reading the photo…</strong></div>
-      <p class="muted" id="workNote"></p>
-    </section>
-
-    <section class="scan-card" id="scanError" hidden>
-      <strong id="errText"></strong>
-      <p class="muted" id="errTip"></p>
-      <div class="row"><button class="primary" id="retry">Try another photo</button></div>
-    </section>
-
-    <section class="scan-card" id="scanReview" hidden>
-      <div class="row">
-        <span id="markerChip" class="chip"></span>
-        <span id="errChip" class="chip"></span>
-        <span id="readChip" class="chip"></span>
+    <section id="scanWork" hidden>
+      <div class="state">
+        <span class="spinner" aria-hidden="true"></span>
+        <h3 id="workText">Reading the photo…</h3>
+        <p id="workNote"></p>
       </div>
-      <p class="muted">Check each value against the handwriting above it and fix anything wrong. Yellow boxes are ones the reader was unsure of. Tap a tooth number to mark it missing.</p>
-      <div class="row">
-        <button id="nextCheck">Next yellow box</button>
-        <label class="muted">Reader <select id="reader"></select></label>
-        <button id="runReader">Read again</button>
-        <span class="muted" id="readStatus"></span>
+    </section>
+
+    <section id="scanError" hidden>
+      <div class="state error">
+        <span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.2"/><path d="M12 17.2v.1"/></svg></span>
+        <h3 id="errText"></h3>
+        <p id="errTip"></p>
+        <button class="btn primary" id="retry">Try Another Photo</button>
       </div>
-      <h3>Header</h3>
-      <div class="scroll"><div class="jaw" id="hdrBlock"></div></div>
-      <div class="row" id="checkChips"></div>
-      <h3>Chart</h3>
-      <div class="scroll"><div class="jaw" id="jaw-upper"></div></div>
-      <div class="scroll"><div class="jaw" id="jaw-lower"></div></div>
-      <h3>Handwriting copied as written</h3>
-      <p class="muted" id="hwNote">Names and notes aren't converted to text: your handwriting is copied into the chart as it is. Typing in one of those fields later replaces it.</p>
-      <div class="hw" id="handwriting"></div>
-      <details><summary>Show the flattened photo</summary><canvas id="flatView"></canvas></details>
+    </section>
+
+    <section id="scanReview" hidden>
+      <div class="review">
+        <div class="alert" id="alignNote" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="18" height="18"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.2"/><path d="M12 17.2v.1"/></svg><span><span id="markerChip"></span> <span id="errChip"></span></span></div>
+        <span id="readChip" hidden></span>
+
+        <div>
+          <div class="card-head"><h3>Patient</h3></div>
+          <div class="card" id="patientCard"></div>
+        </div>
+
+        <div>
+          <div class="card-head"><h3>Maxilla</h3><span>Tap a tooth number to mark it missing</span></div>
+          <div class="card strips"><div class="scroll"><div class="jaw" id="jaw-upper"></div></div></div>
+        </div>
+
+        <div>
+          <div class="card-head"><h3>Mandible</h3></div>
+          <div class="card strips"><div class="scroll"><div class="jaw" id="jaw-lower"></div></div></div>
+        </div>
+
+        <div>
+          <div class="card-head"><h3>Assessment</h3><span id="hwNote">Notes are copied as handwriting</span></div>
+          <div class="card" id="assessCard"></div>
+        </div>
+
+        <details class="more">
+          <summary>Photo and reader</summary>
+          <div class="row">
+            <button class="btn" id="retake">Retake Photo</button>
+            <select id="reader" aria-label="Reader"></select>
+            <button class="btn" id="runReader">Read Again</button>
+            <span class="muted" id="readStatus"></span>
+          </div>
+          <canvas id="flatView"></canvas>
+        </details>
+      </div>
     </section>
   </div>
-
-  <div class="scan-foot" id="scanFoot" hidden>
-    <button id="retake">Retake photo</button>
-    <span class="muted" id="countStatus"></span>
-    <button class="primary" id="applyScan">Apply to chart</button>
-  </div>
+ </div>
+ <button class="pill" id="nextCheck" hidden><span class="dot"></span>Review next <b id="lowCount"></b></button>
 </div>
 <div class="toast" id="toast" role="status" hidden><span id="toastText"></span><button id="toastClose">Dismiss</button></div>
 
@@ -843,6 +981,20 @@ setDefaults();
 build();
 setPaper(document.getElementById('paper').value);
 
+// App-bar segmented controls drive the (hidden) selects the rest of the page reads.
+document.querySelectorAll('.appbar .seg').forEach(seg => {
+  const sel = document.getElementById(seg.dataset.for);
+  const sync = () => seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === sel.value)));
+  seg.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b || b.dataset.v === sel.value) return;
+    sel.value = b.dataset.v;
+    sel.dispatchEvent(new Event('change'));
+    sync();
+  });
+  sync();
+});
+
 /* ---------- scanner ----------
    Photo of a filled printout -> find the 6 markers -> flatten -> read handwriting -> review -> apply.
    Heavy parts (OpenCV ~10 MB, digit model, blank template) load only when the scanner opens. */
@@ -900,17 +1052,13 @@ const Scanner = (() => {
 
   /* ---------- panel ---------- */
   function show(step) {
-    $('scanPick').hidden = step !== 'pick';
-    $('scanWork').hidden = step !== 'work';
-    $('scanError').hidden = step !== 'error';
-    $('scanReview').hidden = step !== 'review';
-    $('scanFoot').hidden = step !== 'review';
-    const order = ['pick', 'review', 'apply'], at = step === 'review' ? 1 : 0;
-    document.querySelectorAll('.scan-steps [data-step]').forEach(s => {
-      const k = order.indexOf(s.dataset.step);
-      s.className = k === at ? 'on' : k < at ? 'done' : '';
-    });
-    $('scan').scrollTop = 0;
+    for (const [id, k] of [['scanPick', 'pick'], ['scanWork', 'work'], ['scanError', 'error'], ['scanReview', 'review']]) $(id).hidden = step !== k;
+    const review = step === 'review';
+    $('scanTitle').textContent = review ? 'Check Values' : 'Scan Sheet';
+    $('countStatus').hidden = !review;
+    $('applyScan').disabled = !review;
+    $('scanSheet').scrollTop = 0;
+    if (review) updateCount(); else $('nextCheck').hidden = true;
   }
 
   // pick: open the photo picker right away (must run inside the tap). Cancelling it from the
@@ -1037,10 +1185,11 @@ const Scanner = (() => {
     photo = src;
     toFlat = H;
 
-    $('markerChip').textContent = `${n} of ${total} markers`;
-    $('markerChip').className = 'chip ' + (n === total ? 'ok' : 'warn');
-    $('errChip').textContent = `Alignment ${err.toFixed(2)} mm`;
-    $('errChip').className = 'chip ' + (err < 0.5 ? 'ok' : err < 1.2 ? 'warn' : 'bad');
+    // Only speak up about alignment when it matters.
+    $('alignNote').hidden = n === total && err < 0.5;
+    $('markerChip').textContent = n === total ? '' : `Found ${n} of ${total} markers.`;
+    $('errChip').textContent = err < 0.5 ? 'Check that each row lines up with its handwriting.'
+      : `The photo lines up less precisely than usual (${err.toFixed(1)} mm). Check that each row lines up with its handwriting.`;
     cv.imshow($('flatView'), flat);
     if (TEST) document.title = 'SCAN ' + JSON.stringify({ markers: n, errorMm: +err.toFixed(3) });
     return { ok: true };
@@ -1072,81 +1221,103 @@ const Scanner = (() => {
   const pct = v => (v / L.sheet.w * 100) + '%';
 
   const HDR = ['HN', 'Age', 'Date'];
-  const HW_LABELS = { Patient: 'Patient name', Examiner: 'Examiner', diagnosis: 'Diagnosis', treatment_plan: 'Treatment plan' };
+  const HW_LABELS = { Patient: 'Name', Examiner: 'Examiner', diagnosis: 'Diagnosis', treatment_plan: 'Treatment' };
+  const VISIT = ['Initial', 'Re-eval', 'SPT'], PROG = ['Good', 'Fair', 'Poor'];
 
-  function buildHeader() {
-    const host = $('hdrBlock');
-    host.innerHTML = '';
-    if (!L.header) return;
-    const strip = document.createElement('div');
-    strip.className = 'strip';
-    strip.appendChild(cropCanvas(0, 0, L.sheet.w, 9.5));
-    host.appendChild(strip);
+  // One list row: label, a crop of what was written, and the value or control.
+  function listRow(label, cls = '') {
     const row = document.createElement('div');
-    row.className = 'hdrrow';
-    for (const name of HDR) {
-      const r = L.header[name];
-      if (!r) continue;
-      const inp = document.createElement('input');
-      inp.dataset.h = name;
-      inp.autocomplete = 'off';
-      inp.inputMode = 'numeric';
-      inp.placeholder = name;
-      inp.setAttribute('aria-label', name);
-      inp.style.left = `calc(${pct(r.x - 1)} + 1px)`;
-      inp.style.width = `calc(${pct(r.w + 2)} - 2px)`;
-      row.appendChild(inp);
-    }
-    host.appendChild(row);
-    $('checkChips').innerHTML = '';
-    for (const c of L.checks || []) {
+    row.className = 'li ' + cls;
+    row.innerHTML = `<span class="k">${label}</span><span class="crop"></span><span class="v"></span>`;
+    return row;
+  }
+
+  function handwritingRow(key, cls = '') {
+    const row = listRow(HW_LABELS[key], cls);
+    row.dataset.hwRow = key;
+    row.querySelector('.crop').innerHTML = '<span class="none">Nothing written</span>';
+    row.querySelector('.v').innerHTML = `<label class="switch" title="Copy this handwriting into the chart">` +
+      `<input type="checkbox" data-hw="${key}" aria-label="Copy ${HW_LABELS[key]} into the chart" disabled><span class="track"></span></label>`;
+    return row;
+  }
+
+  // Checkbox groups as a segmented control: tap to choose, tap again to clear.
+  function segmentRow(label, names) {
+    const row = listRow(label), seg = document.createElement('div');
+    seg.className = 'seg';
+    seg.setAttribute('role', 'group');
+    seg.setAttribute('aria-label', label);
+    for (const name of names) {
+      const c = (L.checks || []).find(c => c.label === name);
+      if (!c) continue;
       const b = document.createElement('button');
       b.className = 'chk';
       b.dataset.i = c.i;
+      b.textContent = name;
       b.setAttribute('aria-pressed', 'false');
-      b.textContent = c.label;
       b.onclick = () => {
         const on = b.getAttribute('aria-pressed') !== 'true';
-        b.setAttribute('aria-pressed', on ? 'true' : 'false');
-        b.textContent = (on ? '☑ ' : '☐ ') + c.label;
-        b.classList.remove('low');
+        seg.querySelectorAll('button').forEach(x => { x.setAttribute('aria-pressed', 'false'); x.classList.remove('low'); });
+        b.setAttribute('aria-pressed', String(on));
       };
-      $('checkChips').appendChild(b);
+      seg.appendChild(b);
     }
-    $('handwriting').innerHTML = '';
+    row.querySelector('.crop').appendChild(seg);
+    return row;
+  }
+
+  function buildCards() {
+    const pc = $('patientCard'), ac = $('assessCard'), H = L.header || {};
+    pc.innerHTML = '';
+    ac.innerHTML = '';
+    for (const name of ['Patient', 'HN', 'Age', 'Date', 'Examiner']) {
+      const r = H[name];
+      if (!r) continue;
+      if (!HDR.includes(name)) { pc.appendChild(handwritingRow(name)); continue; }
+      const row = listRow(name), xmin = r.xmin ?? r.x, xmax = r.xmax ?? r.x + r.w;
+      row.querySelector('.crop').appendChild(cropCanvas(xmin, r.y - 2.2, xmax - xmin, r.h + 2.8));
+      const inp = document.createElement('input');
+      inp.className = 'field-in';
+      inp.dataset.h = name;
+      inp.autocomplete = 'off';
+      inp.inputMode = 'numeric';
+      inp.setAttribute('aria-label', name);
+      row.querySelector('.v').appendChild(inp);
+      pc.appendChild(row);
+    }
+    pc.appendChild(segmentRow('Visit', VISIT));
+    ac.appendChild(segmentRow('Prognosis', PROG));
+    ac.appendChild(handwritingRow('diagnosis', 'tall'));
+    ac.appendChild(handwritingRow('treatment_plan', 'tall'));
   }
 
   function showExtras(res) {
     for (const name of HDR) {
-      const inp = document.querySelector(`.hdrrow input[data-h="${name}"]`), v = res.header?.[name];
+      const inp = document.querySelector(`.field-in[data-h="${name}"]`), v = res.header?.[name];
       if (!inp) continue;
       inp.value = v ? v.value : '';
       inp.classList.toggle('low', !!v && v.confidence < LOW_CONFIDENCE);
     }
-    document.querySelectorAll('#checkChips .chk').forEach(b => {
+    document.querySelectorAll('.scan .chk').forEach(b => {
       const c = res.checks?.[b.dataset.i];
-      b.setAttribute('aria-pressed', c && c.checked ? 'true' : 'false');
-      b.textContent = (c && c.checked ? '☑ ' : '☐ ') + b.textContent.replace(/^[☑☐] /, '');
+      b.setAttribute('aria-pressed', String(!!(c && c.checked)));
       b.classList.toggle('low', !!c && c.confidence < LOW_CONFIDENCE);
     });
-    const hw = $('handwriting');
-    hw.innerHTML = '';
-    for (const [key, img] of Object.entries(res.images || {})) {
-      const fig = document.createElement('figure');
-      fig.innerHTML = `<figcaption>${HW_LABELS[key] || key}<label><input type="checkbox" checked data-hw="${key}"> Copy into chart</label></figcaption>`;
+    document.querySelectorAll('[data-hw-row]').forEach(row => {
+      const key = row.dataset.hwRow, img = res.images?.[key], crop = row.querySelector('.crop'), sw = row.querySelector('[data-hw]');
+      row.img = img || null;
+      sw.disabled = !img;
+      sw.checked = !!img;
+      if (!img) { crop.innerHTML = '<span class="none">Nothing written</span>'; return; }
       const el = new Image();
       el.src = img.src;
-      el.alt = `Handwritten ${HW_LABELS[key] || key}`;
-      fig.appendChild(el);
-      fig.img = img;
-      hw.appendChild(fig);
-    }
-    $('hwNote').hidden = !hw.children.length;
-    if (!hw.children.length) hw.innerHTML = '<p class="muted">No handwriting found in the name, examiner, diagnosis or treatment plan areas.</p>';
+      el.alt = `Handwritten ${HW_LABELS[key]}`;
+      crop.replaceChildren(el);
+    });
   }
 
   function buildReview() {
-    buildHeader();
+    buildCards();
     scanMissing.clear();
     for (const jaw of ['upper', 'lower']) {
       const host = $('jaw-' + jaw);
@@ -1210,11 +1381,14 @@ const Scanner = (() => {
 
   function updateCount() {
     const ins = [...document.querySelectorAll('.inrow input:not(:disabled)')];
-    const filled = ins.filter(i => i.value.trim()).length, low = ins.filter(i => i.classList.contains('low')).length;
+    const filled = ins.filter(i => i.value.trim()).length;
+    const lows = document.querySelectorAll('.inrow input.low:not(:disabled), .field-in.low').length;
     const nums = ins.filter(i => i.classList.contains('numwarn')).length;
-    $('countStatus').textContent = `${filled} values · ${32 - scanMissing.size} teeth present` + (low ? ` · ${low} yellow to check` : '') +
-      (nums ? ` · ${nums} furcation written as a number (use I–III)` : '');
-    $('nextCheck').disabled = !low;
+    $('countStatus').textContent = `${filled} values · ${32 - scanMissing.size} teeth` +
+      (nums ? ` · ${nums} furcation as number` : '');
+    $('lowCount').textContent = lows;
+    $('nextCheck').hidden = !lows || $('scanReview').hidden;
+    $('nextCheck').disabled = !lows;
   }
 
   async function read(key) {
@@ -1258,7 +1432,7 @@ const Scanner = (() => {
   }
 
   function nextCheck() {
-    const lows = [...document.querySelectorAll('.inrow input.low:not(:disabled)')];
+    const lows = [...document.querySelectorAll('.inrow input.low:not(:disabled), .field-in.low')];
     if (!lows.length) return;
     const at = lows.indexOf(document.activeElement);
     const next = lows[(at + 1) % lows.length];
@@ -1285,22 +1459,20 @@ const Scanner = (() => {
     });
     summarize();
     for (const name of HDR) {
-      const v = document.querySelector(`.hdrrow input[data-h="${name}"]`)?.value.trim();
+      const v = document.querySelector(`.field-in[data-h="${name}"]`)?.value.trim();
       if (v) headerInput(name).value = v;
     }
     const sheetChecks = document.querySelectorAll('.sheet label.ck input');
-    document.querySelectorAll('#checkChips .chk').forEach(b => { sheetChecks[+b.dataset.i].checked = b.getAttribute('aria-pressed') === 'true'; });
-    for (const fig of $('handwriting').querySelectorAll('figure')) {
-      const key = fig.querySelector('[data-hw]').dataset.hw;
-      setHandwriting(key, fig.querySelector('[data-hw]').checked ? fig.img : null);
-    }
+    document.querySelectorAll('.scan .chk').forEach(b => { sheetChecks[+b.dataset.i].checked = b.getAttribute('aria-pressed') === 'true'; });
+    document.querySelectorAll('[data-hw-row]').forEach(row => {
+      setHandwriting(row.dataset.hwRow, row.querySelector('[data-hw]').checked && row.img ? row.img : null);
+    });
     setMarkers(false);   // finished chart: ready to print or export without the scan markers
     close();
     window.scrollTo(0, 0);
     const filled = values.filter(Boolean).length;
     toast(`Filled ${filled} values${missing.size ? ` and ${missing.size} missing teeth` : ''} from the photo.` +
-      (flagged.size ? ` Boxes outlined in yellow need a second look.` : '') +
-      ' Scan markers are now hidden, ready for Print or Export PDF.');
+      (flagged.size ? ' Values outlined in yellow need a second look.' : '') + ' Scan markers are hidden for printing.');
   }
 
   let toastTimer;
@@ -1339,6 +1511,13 @@ const Scanner = (() => {
   $('toastClose').onclick = () => { $('toast').hidden = true; };
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('scan').hidden) close(); });
 
+  document.addEventListener('input', e => {
+    const f = e.target;
+    if (!f.matches('.field-in')) return;
+    f.value = f.value.replace(f.dataset.h === 'Date' ? /[^\d/]/g : /\D/g, '');
+    f.classList.remove('low');
+    updateCount();
+  });
   document.addEventListener('input', e => {
     const i = e.target;
     if (!i.matches('.inrow input')) return;
