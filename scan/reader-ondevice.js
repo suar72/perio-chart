@@ -6,6 +6,9 @@
 // 3. Each character goes through a small CNN trained on MNIST (model/digits.js, tools/train-digits.py).
 // 4. Values are checked against what the cell allows (PD 0-15, mobility 0-3, furcation I-III).
 // 5. A struck-out tooth is a column whose two diagonals are mostly ink.
+// 6. Prognosis letters (G F P Q H) use a second CNN trained on EMNIST (letters.js); HN, Age and Date
+//    reuse the digit CNN, with date slashes recognised by shape; checkboxes count ink inside the box.
+// 7. Patient, Examiner, Diagnosis and Treatment plan are not read: their ink is cut out as images.
 (function () {
   const MM = {
     inkThreshold: 32,      // adaptive threshold offset (higher = only darker strokes count)
@@ -21,15 +24,16 @@
   };
 
   /* ---------- tiny CNN (mirrors tools/train-digits.py) ---------- */
-  let net = null;
-  function loadNet() {
-    if (net) return net;
+  const nets = new Map();
+  function loadNet(model) {
+    if (nets.has(model)) return nets.get(model);
     const w = {};
-    for (const [k, v] of Object.entries(window.DIGIT_MODEL.weights)) {
+    for (const [k, v] of Object.entries(model.weights)) {
       const bytes = Uint8Array.from(atob(v.data), c => c.charCodeAt(0));
       w[k] = { shape: v.shape, data: new Float32Array(bytes.buffer) };
     }
-    return (net = w);
+    nets.set(model, w);
+    return w;
   }
 
   function conv3x3Relu(input, cin, size, W, B) {
@@ -74,8 +78,8 @@
     return out;
   }
 
-  function classify(x28) {
-    const w = loadNet();
+  function classify(x28, model) {
+    const w = loadNet(model);
     let a = maxPool2(conv3x3Relu(x28, 1, 28, w['c1.weight'], w['c1.bias']), 8, 28);
     a = maxPool2(conv3x3Relu(a, 8, 14, w['c2.weight'], w['c2.bias']), 16, 14);
     a = dense(dense(a, w['f1.weight'], w['f1.bias'], true), w['f2.weight'], w['f2.bias'], false);
@@ -84,16 +88,16 @@
   }
 
   // Read the character a few ways (box size, 1 px shifts) and average: steadier, better-calibrated.
-  function classifyTTA(cv, mask) {
-    const probs = new Float32Array(10);
+  function classifyTTA(cv, mask, model = window.DIGIT_MODEL) {
+    const n = model.weights['f2.bias'].shape[0], probs = new Float32Array(n);
     const variants = [[20, 0, 0], [18, 0, 0], [22, 0, 0], [20, 1, 0], [20, -1, 0], [20, 0, 1], [20, 0, -1]];
     for (const [box, dx, dy] of variants) {
-      const p = classify(to28(cv, mask, box, dx, dy));
-      for (let i = 0; i < 10; i++) probs[i] += p[i] / variants.length;
+      const p = classify(to28(cv, mask, box, dx, dy), model);
+      for (let i = 0; i < n; i++) probs[i] += p[i] / variants.length;
     }
     let best = 0;
-    for (let i = 1; i < 10; i++) if (probs[i] > probs[best]) best = i;
-    return { digit: best, p: probs[best] };
+    for (let i = 1; i < n; i++) if (probs[i] > probs[best]) best = i;
+    return { digit: best, label: model.classes ? model.classes[best] : String(best), p: probs[best] };
   }
 
   /* ---------- image helpers ---------- */
@@ -220,7 +224,8 @@
       if (chars.length === 1 && chars[0].digit >= 1 && chars[0].digit <= 3) return { value: s, confidence: p };
       return { value: '', confidence: 0 };
     }
-    return { value: '', confidence: 0 };   // prognosis letters: not read yet, flag for review
+    if (kind === 'prog') return chars.length === 1 && chars[0].label ? { value: chars[0].label, confidence: p } : { value: '', confidence: 0 };
+    return { value: '', confidence: 0 };
   }
 
   function struckTeeth(cv, ink, printed, columns, px) {
@@ -245,7 +250,7 @@
     return out;
   }
 
-  async function run({ cv, flat, px, layout }) {
+  async function run({ cv, flat, px, layout, warpArea }) {
     const tmpl = await loadTemplate();
     const { ink, printed } = inkMask(cv, flat, tmpl, px);
     const missing = struckTeeth(cv, ink, printed, layout.columns, px);
@@ -297,7 +302,8 @@
           for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
             if (g.ks.includes(lab[(g.y + y) * lw + g.x + x])) m.data[y * g.w + x] = 255;
           }
-          const x28 = to28(cv, m), c = classifyTTA(cv, m);
+          const model = layout.fields[i].kind === 'prog' ? window.LETTER_MODEL : window.DIGIT_MODEL;
+          const x28 = to28(cv, m), c = model ? classifyTTA(cv, m, model) : { digit: -1, label: '', p: 0 };
           if (MM.debug) (window.READER_DEBUG ||= {})[i] = [...((window.READER_DEBUG || {})[i] || []), { x28: [...x28], ...c, w: g.w, h: g.h }];
           m.delete();
           return c;
@@ -307,8 +313,203 @@
       }
       [band, labels, stats, cents].forEach(m => m.delete());
     }
+    const extras = readExtras(cv, flat, ink, layout, px, warpArea);
     ink.delete(); printed.delete();
-    return { values, missing };
+    return { values, missing, ...extras };
+  }
+
+  /* ---------- header, checkboxes, handwriting images ---------- */
+  const clampRect = (cv, m, x0, y0, x1, y1) => {
+    x0 = Math.max(0, Math.round(x0)); y0 = Math.max(0, Math.round(y0));
+    x1 = Math.min(m.cols, Math.round(x1)); y1 = Math.min(m.rows, Math.round(y1));
+    return new cv.Rect(x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0));
+  };
+
+  // Characters written along one header line, left to right. Slashes are recognised by shape.
+  function readLine(cv, ink, r, px, allowSlash = false) {
+    const xmin = r.xmin ?? r.x - 1, xmax = r.xmax ?? r.x + r.w + 1;   // free space around the underline
+    const rect = clampRect(cv, ink, (xmin - 3) * px, (r.y - 2.2) * px, (xmax + 3) * px, (r.y + r.h + 0.6) * px);   // ±3 mm to notice spill-over
+    const roi = ink.roi(rect), band = roi.clone();
+    roi.delete();
+    const labels = new cv.Mat(), stats = new cv.Mat(), cents = new cv.Mat();
+    const n = cv.connectedComponentsWithStats(band, labels, stats, cents, 8, cv.CV_32S);
+    const blobs = [];
+    let spill = false;   // writing that runs on past this field's space: what's read may be cut short
+    for (let k = 1; k < n; k++) {
+      const s = i => stats.data32S[k * 5 + i];
+      const [bx, by, bw, bh, area] = [s(0), s(1), s(2), s(3), s(4)];
+      if (area < MM.minArea * px * px || bh < MM.minHeight * px) continue;
+      const cx = rect.x / px + cents.doubleAt(k, 0) / px;
+      if (cx < xmin || cx > xmax) { spill = true; continue; }
+      blobs.push({ k, x: bx, y: by, w: bw, h: bh });
+    }
+    const lab = labels.data32S, lw = labels.cols;
+    const medianH = blobs.map(b => b.h).sort((a, b) => a - b)[blobs.length >> 1] || 0;
+    // Possible "/" (dates only), judged stroke by stroke before digits are grouped, since a slash leans
+    // into its neighbours: one stroke leaning right, as tall as the digits, thin on every row (a 7
+    // isn't). A slanted 1 looks the same, so the date parser decides which candidates are slashes.
+    for (const b of blobs) {
+      if (!allowSlash) break;
+      let tx = 0, tn = 0, bx = 0, bn = 0, widest = 0;
+      for (let y = 0; y < b.h; y++) {
+        let first = -1, last = -1;
+        for (let x = 0; x < b.w; x++) {
+          if (lab[(b.y + y) * lw + b.x + x] !== b.k) continue;
+          if (first < 0) first = x;
+          last = x;
+          if (y < b.h / 2) { tx += x; tn++; } else { bx += x; bn++; }
+        }
+        if (first >= 0) widest = Math.max(widest, last - first + 1);
+      }
+      b.lean = tn && bn ? (tx / tn - bx / bn) / b.h : 0;
+      b.slash = b.w < 0.75 * b.h && b.h > 0.6 * medianH && b.lean > 0.06 && widest < 0.36 * b.h;
+    }
+    blobs.sort((a, b) => a.x - b.x);
+    const groups = [];
+    for (const b of blobs) {
+      if (b.slash) { groups.push({ ...b, ks: [b.k] }); continue; }
+      const g = groups.filter(g => !g.slash).pop();
+      const overlap = g ? Math.min(g.x + g.w, b.x + b.w) - Math.max(g.x, b.x) : -1;
+      if (g && overlap > 0.4 * Math.min(g.w, b.w)) {
+        const nx = Math.min(g.x, b.x), ny = Math.min(g.y, b.y);
+        g.w = Math.max(g.x + g.w, b.x + b.w) - nx; g.h = Math.max(g.y + g.h, b.y + b.h) - ny;
+        g.x = nx; g.y = ny; g.ks.push(b.k);
+      } else groups.push({ ...b, ks: [b.k] });
+    }
+    groups.sort((a, b) => a.x - b.x);
+    // Writing that runs into the edge of its space may be cut off: flag it.
+    const touchesEdge = spill;
+    const chars = groups.map(g => {
+      const m = cv.Mat.zeros(g.h, g.w, cv.CV_8U);
+      for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
+        if (g.ks.includes(lab[(g.y + y) * lw + g.x + x])) m.data[y * g.w + x] = 255;
+      }
+      const c = classifyTTA(cv, m, window.DIGIT_MODEL);
+      m.delete();
+      if (g.slash) Object.assign(c, { canSlash: true, lean: g.lean });
+      return touchesEdge ? { ...c, p: Math.min(c.p, 0.5) } : c;
+    });
+    if (MM.debug) (window.READER_DEBUG_HDR ||= []).push({ band: [rect.x, rect.y, rect.width, rect.height], blobs: blobs.map(b => [b.x, b.y, b.w, b.h]),
+      groups: groups.map((g, k) => ({ x: g.x, w: g.w, h: g.h, n: g.ks.length, got: (chars[k].canSlash ? '/?' : '') + chars[k].label, p: +chars[k].p.toFixed(2) })) });
+    [band, labels, stats, cents].forEach(m => m.delete());
+    return chars;
+  }
+
+  const validDate = ([d, mo, y]) => d.length >= 1 && d.length <= 2 && mo.length >= 1 && mo.length <= 2 &&
+    +d >= 1 && +d <= 31 && +mo >= 1 && +mo <= 12 && (y.length === 2 || y.length === 4);
+
+  // Date: try every pair of slash candidates (a slanted 1 and a / look alike) and keep the split that
+  // makes a real date, preferring the most slanted strokes; with no separators, 8 or 6 digits split d/m/y.
+  function readDate(chars) {
+    const conf = Math.min(...chars.map(c => c.p));
+    const cand = chars.map((c, k) => c.canSlash || c.digit === 1 ? k : -1).filter(k => k >= 0);   // a slash is often read as 1
+    let best = null;
+    for (let a = 0; a < cand.length; a++) for (let b = a + 1; b < cand.length; b++) {
+      const i = cand[a], j = cand[b], dig = (from, to) => chars.slice(from, to).map(c => c.digit).join('');
+      const parts = [dig(0, i), dig(i + 1, j), dig(j + 1)];
+      const score = (chars[i].lean || 0) + (chars[j].lean || 0);
+      if (validDate(parts) && (!best || score > best.score)) best = { parts, score };
+    }
+    if (!best) {
+      const s = chars.map(c => c.digit).join('');
+      if (s.length === 8 || s.length === 6) {
+        const parts = [s.slice(0, 2), s.slice(2, 4), s.slice(4)];
+        if (validDate(parts)) best = { parts, score: 0 };
+      }
+    }
+    if (!best) return { value: chars.map(c => c.digit).join(''), confidence: 0 };
+    const [d, mo, y] = best.parts;
+    // An exam date is from this year or last (Gregorian or Thai Buddhist era); anything else is likely misread or cut off.
+    const now = new Date().getFullYear(), yr = y.length === 2 ? +y + 100 * Math.floor(now / 100) : +y;
+    const recent = [now, now - 1, now + 543, now + 542].some(v => v === yr || (y.length === 2 && v % 100 === +y));
+    const sure = best.score > 0.25 && recent;
+    return { value: `${d.padStart(2, '0')}/${mo.padStart(2, '0')}/${y}`, confidence: sure ? conf : Math.min(conf, recent ? 0.8 : 0.5) };
+  }
+
+  function interpretHeader(name, chars) {
+    if (!chars.length) return null;
+    const conf = Math.min(...chars.map(c => c.p)), s = chars.map(c => c.digit).join('');
+    if (name === 'HN') return { value: s, confidence: conf };
+    if (name === 'Age') return { value: s, confidence: chars.length <= 3 && +s <= 120 ? conf : 0 };
+    if (name === 'Date') return readDate(chars);
+    return null;
+  }
+
+  // Ticked if there is clearly ink in or just around the printed box (ticks overshoot).
+  function readCheck(cv, ink, c, px) {
+    const frac = (grow) => {
+      const r = clampRect(cv, ink, (c.x - grow) * px, (c.y - grow) * px, (c.x + c.w + grow) * px, (c.y + c.h + grow) * px);
+      const roi = ink.roi(r), n = cv.countNonZero(roi);
+      roi.delete();
+      return n / (r.width * r.height);
+    };
+    const inner = frac(-0.35), outer = frac(1.0);
+    const checked = inner > 0.06 || outer > 0.05;
+    const sure = inner > 0.12 || outer > 0.1 || (inner < 0.025 && outer < 0.02);
+    return { checked, confidence: sure ? 0.99 : 0.6 };
+  }
+
+  // The ink in an area as a transparent PNG, positioned in layout mm. Cut from the photo at 20 px/mm
+  // (small Thai script needs it). Ink strength is how much darker the photo is than the blank chart
+  // at that spot, so pen over printed lines survives and stroke edges stay smooth; pen colour is kept.
+  const HW_SCALE = 20;
+  function inkImage(cv, ink, r, px, warpArea) {
+    const rect = clampRect(cv, ink, r.x * px, r.y * px, (r.x + r.w) * px, (r.y + r.h) * px);
+    const roi = ink.roi(rect), count = cv.countNonZero(roi);
+    roi.delete();
+    if (count < 2.5 * px * px) return null;                     // under ~2.5 mm² of ink: nothing written
+    const area = { x: rect.x / px, y: rect.y / px, w: rect.width / px, h: rect.height / px };
+    const col = warpArea(area, HW_SCALE), W = col.cols, H = col.rows;
+
+    const gray = new cv.Mat(), g = new cv.Mat(), bg = new cv.Mat(), norm = new cv.Mat();
+    cv.cvtColor(col, gray, cv.COLOR_RGBA2GRAY);
+    gray.convertTo(g, cv.CV_32F);
+    const kb = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2 * HW_SCALE, 2 * HW_SCALE));
+    cv.dilate(g, bg, kb);
+    cv.GaussianBlur(bg, bg, new cv.Size(0, 0), 2 * HW_SCALE);
+    cv.divide(g, bg, norm, 255);                                  // paper = 255
+
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const tp = window.TEMPLATE.px;
+    c.getContext('2d').drawImage(template, area.x * tp, area.y * tp, area.w * tp, area.h * tp, 0, 0, W, H);
+    const t = cv.imread(c), tg = new cv.Mat();
+    cv.cvtColor(t, tg, cv.COLOR_RGBA2GRAY);
+    const kt = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(Math.round(HW_SCALE / 4) * 2 + 1, Math.round(HW_SCALE / 4) * 2 + 1));
+    cv.erode(tg, tg, kt);                                         // darkest print nearby: absorbs misalignment
+
+    for (let i = 0; i < W * H; i++) {
+      const o = i * 4, d = tg.data[i] - norm.data32F[i];
+      const a = Math.max(0, Math.min(255, (d - 40) * 2.4));
+      for (let ch = 0; ch < 3; ch++) col.data[o + ch] = Math.round(col.data[o + ch] * 0.55);
+      col.data[o + 3] = a;
+    }
+    const canvas = document.createElement('canvas');
+    cv.imshow(canvas, col);
+    [col, gray, g, bg, norm, kb, t, tg, kt].forEach(m => m.delete());
+    return { src: canvas.toDataURL('image/png'), ...area };
+  }
+
+  function readExtras(cv, flat, ink, layout, px, warpArea) {
+    const header = {}, checks = {}, images = {};
+    for (const name of ['HN', 'Age', 'Date']) {
+      const r = layout.header?.[name];
+      if (!r) continue;
+      const v = interpretHeader(name, readLine(cv, ink, r, px, name === 'Date'));
+      if (v) header[name] = v;
+    }
+    for (const c of layout.checks || []) checks[c.i] = { label: c.label, ...readCheck(cv, ink, c, px) };
+    for (const name of ['Patient', 'Examiner']) {
+      const r = layout.header?.[name];
+      if (!r) continue;
+      const xmin = r.xmin ?? r.x - 1, xmax = r.xmax ?? r.x + r.w + 1;
+      images[name] = inkImage(cv, ink, { x: xmin, y: r.y - 2.2, w: xmax - xmin, h: r.h + 2.8 }, px, warpArea);
+    }
+    for (const [key, a] of Object.entries(layout.areas || {})) {
+      images[key] = inkImage(cv, ink, { x: a.x - 0.5, y: a.y - 1.5, w: a.w + 1, h: a.h + 2.1 }, px, warpArea);
+    }
+    for (const k of Object.keys(images)) if (!images[k]) delete images[k];
+    return { header, checks, images };
   }
 
   window.OnDeviceReader = { run, settings: MM };

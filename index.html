@@ -39,6 +39,12 @@
   .boxes input.numwarn { color: #b45309; box-shadow: inset 0 0 0 2.5px #f08c00; }   /* furcation written as a number */
   .furcwarn { display: inline-flex; align-items: center; gap: 6px; padding: 4px 4px 4px 10px; border-radius: 8px; background: #fff1dc; color: #8a4b00; font-size: 12.5px; }
   .toolbar .furcwarn button { padding: 3px 9px; font-size: 12.5px; border-color: #e0a45c; }
+  .sheet { position: relative; }
+  /* Handwriting copied from a scan (name, examiner, diagnosis, treatment plan), drawn over its fields. */
+  .inklayer { position: absolute; left: 0; top: 0; width: 287mm; height: 100%; pointer-events: none; z-index: 2; }
+  @media screen { .inklayer { left: 6mm; top: 6mm; } }
+  body.exporting .inklayer { left: 0; top: 0; }
+  .inklayer img { position: absolute; }
   .sheet.no-markers .marker { visibility: hidden; }
   .sheet.no-markers .scanbar { display: none; }
   /* PDF export renders the sheet exactly as printed. */
@@ -158,6 +164,19 @@
   .scan .inrow input.low { background: #fff3c4; border-color: #d99a00; }
   .scan .inrow input.numwarn { border-color: #f08c00; box-shadow: inset 0 0 0 1.5px #f08c00; color: #b45309; }
   .scan .inrow input:disabled { background: repeating-linear-gradient(45deg, #eee 0 3px, #f8f8f8 3px 6px); border-color: #e2e2e2; }
+  .scan .hdrrow { position: relative; height: 30px; margin-bottom: 6px; }
+  .scan .hdrrow input { position: absolute; top: 0; height: 28px; padding: 0 4px; text-align: center; font: 700 14px/1 -apple-system, Arial, sans-serif;
+    border: 1px solid #c3c8d0; border-radius: 4px; background: #fff; color: var(--accent); min-width: 0; }
+  .scan .hdrrow input.low { background: #fff3c4; border-color: #d99a00; }
+  .scan .chk { padding: 5px 12px; border-radius: 99px; }
+  .scan .chk[aria-pressed="true"] { background: #e8f1fc; border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .scan .chk.low { box-shadow: 0 0 0 2px #e0a000; }
+  .scan .hw { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .scan .hw figure { margin: 0; border: 1px solid #dde1e6; border-radius: 8px; padding: 8px; display: grid; gap: 6px; background: #fff; }
+  .scan .hw img { width: 100%; height: auto; max-height: 120px; object-fit: contain; object-position: left; background: #fafbfc; }
+  .scan .hw figcaption { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 600; }
+  .scan .hw label { font-weight: 400; color: #5d6470; display: inline-flex; gap: 4px; align-items: center; }
+  .scan h3 { font-size: 13px; margin: 6px 0 0; text-transform: uppercase; letter-spacing: .4px; color: #5d6470; }
   .scan .teethbar { position: absolute; inset: 0; }
   .scan .teethbar button { position: absolute; top: 0; height: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; }
   .scan .teethbar button:hover { background: rgba(11, 92, 173, .08); }
@@ -210,6 +229,7 @@
 </div>
 
 <div class="sheet">
+  <div class="inklayer" id="inkLayer" aria-hidden="true"></div>
   <header class="top">
     <div class="marker" data-id="0"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM2 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div>
     <h1>Periodontal Chart</h1>
@@ -313,8 +333,15 @@
         <button id="runReader">Read again</button>
         <span class="muted" id="readStatus"></span>
       </div>
+      <h3>Header</h3>
+      <div class="scroll"><div class="jaw" id="hdrBlock"></div></div>
+      <div class="row" id="checkChips"></div>
+      <h3>Chart</h3>
       <div class="scroll"><div class="jaw" id="jaw-upper"></div></div>
       <div class="scroll"><div class="jaw" id="jaw-lower"></div></div>
+      <h3>Handwriting copied as written</h3>
+      <p class="muted" id="hwNote">Names and notes aren't converted to text: your handwriting is copied into the chart as it is. Typing in one of those fields later replaces it.</p>
+      <div class="hw" id="handwriting"></div>
       <details><summary>Show the flattened photo</summary><canvas id="flatView"></canvas></details>
     </section>
   </div>
@@ -642,8 +669,35 @@ document.addEventListener('click', e => {
   build();
 });
 
+// Handwriting copied from a scan sits over its fields; typing in one of them replaces it.
+const headerInput = name => [...document.querySelectorAll('.sheet header .field')]
+  .find(f => f.querySelector('label').textContent === name).querySelector('input');
+const HANDWRITING_FIELDS = {
+  Patient: () => [headerInput('Patient')],
+  Examiner: () => [headerInput('Examiner')],
+  diagnosis: () => [...document.querySelectorAll('.sheet .box')[0].querySelectorAll('.wline')],
+  treatment_plan: () => [...document.querySelectorAll('.sheet .box')[1].querySelectorAll('.wline')],
+};
+function setHandwriting(key, img) {
+  const layer = document.getElementById('inkLayer');
+  layer.querySelector(`[data-key="${key}"]`)?.remove();
+  if (!img) return;
+  const el = new Image();
+  el.dataset.key = key;
+  el.src = img.src;
+  el.alt = '';
+  Object.assign(el.style, { left: img.x + 'mm', top: img.y + 'mm', width: img.w + 'mm', height: img.h + 'mm' });
+  layer.appendChild(el);
+}
+document.addEventListener('input', e => {
+  for (const [key, fields] of Object.entries(HANDWRITING_FIELDS)) {
+    if (e.target.value && fields().includes(e.target)) setHandwriting(key, null);
+  }
+});
+
 function clearAll() {
   if (!confirm('Clear every field on the chart?')) return;
+  document.getElementById('inkLayer').innerHTML = '';
   missing.clear();
   document.querySelectorAll('input').forEach(i => {
     if (i.type === 'checkbox') i.checked = false; else i.value = '';
@@ -681,9 +735,12 @@ function printBlank() {
   });
   document.querySelectorAll('table.chart input').forEach(styleInput);
   summarize();
+  const ink = document.getElementById('inkLayer');
+  ink.hidden = true;
 
   window.print();
 
+  ink.hidden = false;
   wasMissing.forEach(t => missing.add(t));
   build();
   restoreVals(chartVals);
@@ -795,9 +852,10 @@ const Scanner = (() => {
   const MAX_SIDE = 2600;         // photos are scaled down to this before detection
   const LOW_CONFIDENCE = 0.95;   // on synthetic handwriting this flags ~1 cell in 9 and catches ~2/3 of misreads
   const OPENCV = 'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js';
-  const ASSETS = ['scan/layout.js', 'scan/template.js', 'scan/digits.js', 'scan/reader-ondevice.js'];
+  const ASSETS = ['scan/layout.js', 'scan/template.js', 'scan/digits.js', 'scan/letters.js', 'scan/reader-ondevice.js'];
   const TEST = new URLSearchParams(location.search).get('test');
   let cv = null, L = null, flat = null, deps = null;
+  let photo = null, toFlat = null;   // the aligned photo and its homography, kept for sharper crops
   const scanMissing = new Set();
   const frame = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
 
@@ -962,6 +1020,7 @@ const Scanner = (() => {
     const b = cv.matFromArray(sheetPts.length, 1, cv.CV_32FC2, sheetPts.flat());
     const H = cv.findHomography(a, b, cv.RANSAC, 4);
     if (flat) flat.delete();
+    if (photo) { photo.delete(); toFlat.delete(); }
     flat = new cv.Mat();
     cv.warpPerspective(src, flat, H, new cv.Size(Math.round(L.sheet.w * PX), Math.round(L.sheet.h * PX)),
       cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar(255, 255, 255, 255));
@@ -974,7 +1033,9 @@ const Scanner = (() => {
       err += Math.hypot(proj.data32F[2 * j] - sheetPts[j][0], proj.data32F[2 * j + 1] - sheetPts[j][1]);
     }
     err /= sheetPts.length * PX;
-    [src, a, b, H, proj].forEach(m => m.delete());
+    [a, b, proj].forEach(m => m.delete());
+    photo = src;
+    toFlat = H;
 
     $('markerChip').textContent = `${n} of ${total} markers`;
     $('markerChip').className = 'chip ' + (n === total ? 'ok' : 'warn');
@@ -983,6 +1044,18 @@ const Scanner = (() => {
     cv.imshow($('flatView'), flat);
     if (TEST) document.title = 'SCAN ' + JSON.stringify({ markers: n, errorMm: +err.toFixed(3) });
     return { ok: true };
+  }
+
+  // A layout area (mm) cut straight from the photo at `scale` px/mm: sharper than the 8 px/mm sheet.
+  function warpArea(r, scale) {
+    const k = scale / PX;
+    const T = cv.matFromArray(3, 3, cv.CV_64F, [k, 0, -r.x * scale, 0, k, -r.y * scale, 0, 0, 1]);
+    const M = new cv.Mat(), out = new cv.Mat(), none = new cv.Mat();
+    cv.gemm(T, toFlat, 1, none, 0, M);
+    cv.warpPerspective(photo, out, M, new cv.Size(Math.round(r.w * scale), Math.round(r.h * scale)),
+      cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar(255, 255, 255, 255));
+    [T, M, none].forEach(m => m.delete());
+    return out;
   }
 
   /* ---------- review ---------- */
@@ -998,7 +1071,82 @@ const Scanner = (() => {
 
   const pct = v => (v / L.sheet.w * 100) + '%';
 
+  const HDR = ['HN', 'Age', 'Date'];
+  const HW_LABELS = { Patient: 'Patient name', Examiner: 'Examiner', diagnosis: 'Diagnosis', treatment_plan: 'Treatment plan' };
+
+  function buildHeader() {
+    const host = $('hdrBlock');
+    host.innerHTML = '';
+    if (!L.header) return;
+    const strip = document.createElement('div');
+    strip.className = 'strip';
+    strip.appendChild(cropCanvas(0, 0, L.sheet.w, 9.5));
+    host.appendChild(strip);
+    const row = document.createElement('div');
+    row.className = 'hdrrow';
+    for (const name of HDR) {
+      const r = L.header[name];
+      if (!r) continue;
+      const inp = document.createElement('input');
+      inp.dataset.h = name;
+      inp.autocomplete = 'off';
+      inp.inputMode = 'numeric';
+      inp.placeholder = name;
+      inp.setAttribute('aria-label', name);
+      inp.style.left = `calc(${pct(r.x - 1)} + 1px)`;
+      inp.style.width = `calc(${pct(r.w + 2)} - 2px)`;
+      row.appendChild(inp);
+    }
+    host.appendChild(row);
+    $('checkChips').innerHTML = '';
+    for (const c of L.checks || []) {
+      const b = document.createElement('button');
+      b.className = 'chk';
+      b.dataset.i = c.i;
+      b.setAttribute('aria-pressed', 'false');
+      b.textContent = c.label;
+      b.onclick = () => {
+        const on = b.getAttribute('aria-pressed') !== 'true';
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.textContent = (on ? '☑ ' : '☐ ') + c.label;
+        b.classList.remove('low');
+      };
+      $('checkChips').appendChild(b);
+    }
+    $('handwriting').innerHTML = '';
+  }
+
+  function showExtras(res) {
+    for (const name of HDR) {
+      const inp = document.querySelector(`.hdrrow input[data-h="${name}"]`), v = res.header?.[name];
+      if (!inp) continue;
+      inp.value = v ? v.value : '';
+      inp.classList.toggle('low', !!v && v.confidence < LOW_CONFIDENCE);
+    }
+    document.querySelectorAll('#checkChips .chk').forEach(b => {
+      const c = res.checks?.[b.dataset.i];
+      b.setAttribute('aria-pressed', c && c.checked ? 'true' : 'false');
+      b.textContent = (c && c.checked ? '☑ ' : '☐ ') + b.textContent.replace(/^[☑☐] /, '');
+      b.classList.toggle('low', !!c && c.confidence < LOW_CONFIDENCE);
+    });
+    const hw = $('handwriting');
+    hw.innerHTML = '';
+    for (const [key, img] of Object.entries(res.images || {})) {
+      const fig = document.createElement('figure');
+      fig.innerHTML = `<figcaption>${HW_LABELS[key] || key}<label><input type="checkbox" checked data-hw="${key}"> Copy into chart</label></figcaption>`;
+      const el = new Image();
+      el.src = img.src;
+      el.alt = `Handwritten ${HW_LABELS[key] || key}`;
+      fig.appendChild(el);
+      fig.img = img;
+      hw.appendChild(fig);
+    }
+    $('hwNote').hidden = !hw.children.length;
+    if (!hw.children.length) hw.innerHTML = '<p class="muted">No handwriting found in the name, examiner, diagnosis or treatment plan areas.</p>';
+  }
+
   function buildReview() {
+    buildHeader();
     scanMissing.clear();
     for (const jaw of ['upper', 'lower']) {
       const host = $('jaw-' + jaw);
@@ -1083,7 +1231,7 @@ const Scanner = (() => {
     });
     let res;
     try {
-      res = await r.run({ cv, flat, px: PX, layout: L, cellImages });
+      res = await r.run({ cv, flat, px: PX, layout: L, cellImages, warpArea });
     } catch (e) {
       $('readStatus').textContent = 'The reader failed: ' + (e.message || e);
       return;
@@ -1103,6 +1251,7 @@ const Scanner = (() => {
     }
     $('readChip').textContent = `${n} values read · ${low} to check` + (scanMissing.size ? ` · ${scanMissing.size} missing teeth` : '');
     $('readChip').className = 'chip ' + (low ? 'warn' : 'ok');
+    showExtras(res);
     $('readStatus').textContent = '';
     updateCount();
     if (TEST) document.title += ' READ';
@@ -1135,6 +1284,16 @@ const Scanner = (() => {
       inp.classList.toggle('check', flagged.has(k) && !!inp.value);
     });
     summarize();
+    for (const name of HDR) {
+      const v = document.querySelector(`.hdrrow input[data-h="${name}"]`)?.value.trim();
+      if (v) headerInput(name).value = v;
+    }
+    const sheetChecks = document.querySelectorAll('.sheet label.ck input');
+    document.querySelectorAll('#checkChips .chk').forEach(b => { sheetChecks[+b.dataset.i].checked = b.getAttribute('aria-pressed') === 'true'; });
+    for (const fig of $('handwriting').querySelectorAll('figure')) {
+      const key = fig.querySelector('[data-hw]').dataset.hw;
+      setHandwriting(key, fig.querySelector('[data-hw]').checked ? fig.img : null);
+    }
     setMarkers(false);   // finished chart: ready to print or export without the scan markers
     close();
     window.scrollTo(0, 0);
