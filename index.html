@@ -92,7 +92,10 @@
 
   /* ---------- sheet ---------- */
   .sheet { width: 287mm; margin: 12px auto; padding: 0; background: #fff; }
-  @media screen { .sheet { padding: 6mm; width: calc(287mm + 12mm); margin: 14px auto 40px; border-radius: 6px; box-shadow: var(--ui-shadow); } }
+  @media screen { .sheet { padding: 6mm; width: calc(287mm + 12mm); margin: 14px auto 40px; border-radius: 6px; box-shadow: var(--ui-shadow);
+    zoom: var(--screen-zoom, 1); } }   /* fills the window width (fitSheet), whatever paper is chosen */
+  @media print { .sheet { zoom: var(--print-zoom, 1); } }          /* paper size: setPaper */
+  body.exporting .sheet { zoom: 1 !important; }
   /* Scan markers (ArUco 4x4, ids 0-5): 4 corners + middle of top and bottom edges. */
   .marker { flex: none; width: 9mm; height: 9mm; }
   .marker svg { display: block; width: 100%; height: 100%; }
@@ -332,7 +335,7 @@
   <div class="appbar-in">
     <h1 class="app-title">Periodontal Chart</h1>
     <div class="group">
-      <div class="seg" data-for="paper" role="group" aria-label="Paper size">
+      <div class="seg" data-for="paper" role="group" aria-label="Paper size for printing and PDF" title="Paper size for printing and PDF">
         <button data-v="A5">A5</button><button data-v="A4">A4</button><button data-v="letter">Letter</button>
       </div>
       <div class="seg" data-for="numbering" role="group" aria-label="Tooth numbering">
@@ -344,7 +347,6 @@
     </div>
     <div class="group">
       <button class="btn plain" onclick="clearAll()">Clear</button>
-      <button class="btn" onclick="printBlank()">Print blank</button>
       <button class="btn" onclick="window.print()">Print</button>
       <button class="btn" id="exportBtn" onclick="exportPdf()">Export PDF</button>
       <button class="btn primary" onclick="Scanner.open(true)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.4-2h5.8l1.4 2h2.2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.4"/></svg>Scan sheet</button>
@@ -896,47 +898,29 @@ function clearAll() {
   build();
 }
 
-// The sheet is laid out for A4 (287 mm wide inside 5 mm margins) and zoomed for other paper.
+// The sheet is laid out for A4 (287 mm wide inside 5 mm margins) and zoomed for other paper when
+// printed or exported. On screen it ignores the paper and fits the window instead (fitSheet).
 const PAPER = { A4: [1, 5], A5: [210 / 297, 3.5], letter: [269.4 / 287, 5] };
 function setPaper(p) {
   const [zoom, margin] = PAPER[p];
   document.getElementById('pagesize').textContent = `@page { size: ${p} landscape; margin: ${margin}mm; }`;
-  document.querySelector('.sheet').style.zoom = zoom === 1 ? '' : zoom;
+  document.documentElement.style.setProperty('--print-zoom', zoom);
 }
+
+// Screen view: the sheet fills the width of the window, so it reads clearly on a large display;
+// on a phone it stops at half size and scrolls sideways.
+const SHEET_PX = (287 + 12) * 96 / 25.4;   // sheet plus its 6 mm screen padding, in CSS px at 100%
+function fitSheet() {
+  const desk = document.querySelector('.desk'), cs = getComputedStyle(desk);
+  const room = desk.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  document.documentElement.style.setProperty('--screen-zoom', Math.max(0.5, room / SHEET_PX).toFixed(4));
+}
+window.addEventListener('resize', fitSheet);
 
 // Editable default: today's date (DD/MM/YYYY).
 function setDefaults() {
   const d = new Date(), pad = v => String(v).padStart(2, '0');
   document.getElementById('fDate').value = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
-}
-
-// Print an empty chart, then put back whatever was on screen.
-function printBlank() {
-  const chartVals = saveVals(), wasMissing = [...missing], hadMarkers = markersShown();
-  setMarkers(true);   // a blank sheet is for writing on and scanning back in
-  const others = [...document.querySelectorAll('.sheet input:not(table input), .sheet textarea')];
-  const otherVals = others.map(i => i.type === 'checkbox' ? i.checked : i.value);
-
-  missing.clear();
-  build();
-  document.querySelectorAll('.sheet input, .sheet textarea').forEach(i => {
-    if (i.type === 'checkbox') i.checked = false; else i.value = '';
-  });
-  document.querySelectorAll('table.chart input').forEach(styleInput);
-  summarize();
-  const ink = document.getElementById('inkLayer');
-  ink.hidden = true;
-
-  window.print();
-
-  ink.hidden = false;
-  wasMissing.forEach(t => missing.add(t));
-  build();
-  restoreVals(chartVals);
-  document.querySelectorAll('table.chart input').forEach(styleInput);
-  others.forEach((i, k) => { if (i.type === 'checkbox') i.checked = otherVals[k]; else i.value = otherVals[k]; });
-  summarize();
-  setMarkers(hadMarkers);
 }
 
 // Scan markers and the scan instructions; hidden for a clean printout or PDF of a finished chart.
@@ -994,12 +978,11 @@ async function exportPdf() {
   const btn = document.getElementById('exportBtn'), label = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'Preparing PDF…';
-  const sheet = document.querySelector('.sheet'), zoomBefore = sheet.style.zoom;
+  const sheet = document.querySelector('.sheet');
   try {
     await loadPdfLibs();
     const paper = document.getElementById('paper').value, [zoom, margin] = PAPER[paper];
-    sheet.style.zoom = '';
-    document.body.classList.add('exporting');
+    document.body.classList.add('exporting');   // true size, no screen padding
     const canvas = await html2canvas(sheet, { scale: PDF_SCALE, backgroundColor: '#ffffff', logging: false, onclone: inlineSvgLook });
     // html2canvas can't draw the full-column X over missing teeth; draw it onto the image here.
     const ctx = canvas.getContext('2d'), sr = sheet.getBoundingClientRect(), k = canvas.width / sr.width;
@@ -1022,7 +1005,6 @@ async function exportPdf() {
     return;
   } finally {
     document.body.classList.remove('exporting');
-    sheet.style.zoom = zoomBefore;
     btn.disabled = false;
   }
   btn.textContent = label;
@@ -1031,6 +1013,7 @@ async function exportPdf() {
 setDefaults();
 build();
 setPaper(document.getElementById('paper').value);
+fitSheet();
 
 // App-bar segmented controls drive the (hidden) selects the rest of the page reads.
 document.querySelectorAll('.appbar .seg').forEach(seg => {
