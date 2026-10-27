@@ -4,6 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Periodontal Chart</title>
+<!-- Installable app (Add to Home Screen): manifest, icons, offline support in sw.js -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Perio Chart">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1c1c1e" media="(prefers-color-scheme: dark)">
 <style id="pagesize">@page { size: landscape; margin: 5mm; }</style>
 <style>
   :root {
@@ -1270,6 +1280,11 @@ document.addEventListener('click', e => {
   if (!e.target.closest('.menuwrap')) toggleRowsMenu(false);
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') toggleRowsMenu(false); });
+
+// Installed app: keep working offline (only over http(s); file:// and the build tools skip it).
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
 
 setDefaults();
 // Rows: ?rows=<code> (used by the build tools) or what this device chose last time; classic by default.
