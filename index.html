@@ -48,6 +48,8 @@
     }
   }
   * { box-sizing: border-box; }
+  /* Phones (iOS Safari especially) enlarge "small" text on wide pages; the sheet must keep its proportions. */
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   html, body { margin: 0; background: var(--ui-bg); color: var(--ink);
     font: 10px/1.25 -apple-system, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
 
@@ -141,8 +143,9 @@
   .fields.right { grid-template-columns: minmax(0,.45fr) minmax(0,.9fr) minmax(0,1.4fr); }
   .field { display: flex; align-items: flex-end; gap: 1.5mm; }
   .field label { white-space: nowrap; font-weight: 600; }
-  .field input { flex: 1; min-width: 0; border: 0; border-bottom: 1px solid var(--line);
+  .field input { -webkit-appearance: none; appearance: none; border-radius: 0; flex: 1; min-width: 0; border: 0; border-bottom: 1px solid var(--line);
     font: inherit; font-size: 11px; padding: 0 1mm; background: transparent; height: 5mm; }
+  .field #fDate { font-size: 10.5px; letter-spacing: -.1px; }   /* a full date fits its line on every browser (iOS renders it wider) */
   .visit { display: flex; gap: 3mm; align-items: center; white-space: nowrap; }
   label.ck { display: inline-flex; align-items: center; gap: 1mm; white-space: nowrap; }
   label.ck input { margin: 0; width: 3mm; height: 3mm; }
@@ -1055,8 +1058,8 @@ function setPrintPage() {
   document.getElementById('pagesize').textContent = `@page { size: ${(FIXED_PAPER + ' ' + orient).trim()}; margin: 5mm; }`;
 }
 
-// Screen view: the whole sheet fits in the window (width and height), so the chart is seen at once
-// at any screen size; on a phone it stops at half size and scrolls.
+// Screen view: the whole sheet fits in the window (width and height), so the chart is seen at once at
+// any screen size. On a phone that means fitting its width; pinch to zoom in.
 function fitSheet() {
   const desk = document.querySelector('.desk'), cs = getComputedStyle(desk);
   const room = desk.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
@@ -1066,7 +1069,8 @@ function fitSheet() {
   const sheetH = sheet.getBoundingClientRect().height / zoom;       // its height at 100%
   const top = desk.getBoundingClientRect().top + window.scrollY;     // app bar and hint above it
   const roomH = window.innerHeight - top - 28;                         // sheet margins (14 px above and below)
-  document.documentElement.style.setProperty('--screen-zoom', Math.max(0.5, Math.min(room / widthPx, roomH / sheetH)).toFixed(4));
+  const fit = Math.min(room / widthPx, roomH / sheetH);
+  document.documentElement.style.setProperty('--screen-zoom', (room < 700 ? room / widthPx : fit).toFixed(4));   // phones: fit the width
 }
 window.addEventListener('resize', fitSheet);
 
