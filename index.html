@@ -430,6 +430,7 @@
           <label class="switch row"><span>CAL <small>PD + CEJ–GM, calculated</small></span><input type="checkbox" data-opt="cal"><span class="track"></span></label>
           <label class="switch row"><span>BOP <small>+ / −</small></span><input type="checkbox" data-opt="bop"><span class="track"></span></label>
           <label class="switch row"><span>Plaque <small>✓</small></span><input type="checkbox" data-opt="pi"><span class="track"></span></label>
+          <label class="switch row"><span>Prognosis <small>per tooth, G F P Q H</small></span><input type="checkbox" data-opt="prog" checked><span class="track"></span></label>
           <p class="pop-note" id="rowsNote">Up to two extra rows fit the usual page; three or more turn it portrait.</p>
         </div>
       </div>
@@ -611,13 +612,17 @@ function universal(t) {
 /* ---------- optional rows ----------
    CEJ–GM (recession +, mm), CAL (PD + CEJ–GM, calculated), BOP (+/−) and plaque (✓), off by default.
    The combination is a 4-bit code (gm 1, cal 2, bop 4, plaque 8; CAL needs CEJ–GM) printed into the
-   two middle scan markers, so the scanner knows which rows a sheet has. Code 0 is the classic sheet. */
-const opts = { gm: false, cal: false, bop: false, pi: false };
-const optCode = () => (opts.gm ? 1 : 0) | (opts.cal ? 2 : 0) | (opts.bop ? 4 : 0) | (opts.pi ? 8 : 0);
-const optCount = () => Object.values(opts).filter(Boolean).length;
+   two middle scan markers, so the scanner knows which rows a sheet has. Code 0 is the classic sheet.
+   Per-tooth prognosis is on by default; switching it off adds 16 to the code (so older sheets keep codes 0-15). */
+const opts = { gm: false, cal: false, bop: false, pi: false, prog: true };
+const EXTRAS = ['gm', 'cal', 'bop', 'pi'];
+const optCode = () => (opts.gm ? 1 : 0) | (opts.cal ? 2 : 0) | (opts.bop ? 4 : 0) | (opts.pi ? 8 : 0) | (opts.prog ? 0 : 16);
+const optCount = () => EXTRAS.filter(k => opts[k]).length;   // extra rows; they decide the page layout
 const sheetMode = () => !optCount() ? 'classic' : optCount() <= 2 ? 'compact' : 'portrait';
-const codeOpts = c => ({ gm: !!(c & 1), cal: !!(c & 2), bop: !!(c & 4), pi: !!(c & 8) });
-const OPT_LABEL = { gm: 'CEJ–GM', cal: 'CAL', bop: 'BOP', pi: 'Plaque' };
+const codeOpts = c => ({ gm: !!(c & 1), cal: !!(c & 2), bop: !!(c & 4), pi: !!(c & 8), prog: !(c & 16) });
+const OPT_LABEL = { gm: 'CEJ–GM', cal: 'CAL', bop: 'BOP', pi: 'Plaque', prog: 'Prognosis' };
+// First and last rows of each jaw carry the thicker outer border.
+const edged = rows => rows.map((r, i) => { const x = [...r]; x[3] = i === 0 ? 'edge-top' : i === rows.length - 1 ? 'edge-bot' : ''; return x; });
 
 // One surface's measurement rows, outermost first: BOP, plaque, CEJ–GM, PD, CAL (CAL sits next to the teeth).
 function surfaceRows(sub, surf) {
@@ -631,8 +636,8 @@ function surfaceRows(sub, surf) {
 }
 // [label, sublabel, kind, edge, roots, view, surface]
 function upperRows() {
-  return [
-    ['Prognosis', '', 'prog', 'edge-top'],
+  return edged([
+    ...(opts.prog ? [['Prognosis', '', 'prog']] : []),
     ['Mobility', '', 'mob'],
     ['Furcation', 'buccal', 'furc1'],
     ...surfaceRows('buccal', 'UB'),
@@ -640,12 +645,12 @@ function upperRows() {
     ['Maxilla', '', 'teeth'],
     ['', 'palatal', 'img', '', 'down', 'p'],
     ...surfaceRows('palatal', 'UP').reverse(),
-    ['Furcation', 'palatal', 'furc2', 'edge-bot'],
-  ];
+    ['Furcation', 'palatal', 'furc2'],
+  ]);
 }
 function lowerRows() {
-  return [
-    ['Furcation', 'lingual', 'furc1', 'edge-top'],
+  return edged([
+    ['Furcation', 'lingual', 'furc1'],
     ...surfaceRows('lingual', 'LL'),
     ['', 'lingual', 'img', '', 'up', 'l'],
     ['Mandible', '', 'teeth'],
@@ -653,8 +658,8 @@ function lowerRows() {
     ...surfaceRows('buccal', 'LB').reverse(),
     ['Furcation', 'buccal', 'furc1'],
     ['Mobility', '', 'mob'],
-    ['Prognosis', '', 'prog', 'edge-bot'],
-  ];
+    ...(opts.prog ? [['Prognosis', '', 'prog']] : []),
+  ]);
 }
 
 const INPUT_MODE = { pd: 'numeric', gm: 'text', bop: 'none', pi: 'none', cal: 'none' };
@@ -1190,10 +1195,15 @@ async function exportPdf() {
 
 /* ---------- scan markers that carry the row code ----------
    ArUco 4×4 (first 50 of DICT_4X4_100; the same as DICT_4X4_50). Corners are always 0, 2, 3, 5.
-   Middle markers: 1 and 4 on the classic sheet; 10 + code (top) and 30 + code (bottom) with extra rows. */
+   Middle markers (top, bottom): 1 and 4 on the classic sheet; 10 + code and 30 + code for codes 1-15 (extra rows);
+   50 + (code - 16) and 70 + (code - 16) for codes 16-31 (prognosis off). Keep in step with codeFromId in the scanner. */
+const midMarkers = c => c === 0 ? [1, 4] : c < 16 ? [10 + c, 30 + c] : [50 + c - 16, 70 + c - 16];
 const ARUCO_BITS = [45906, 42511, 19251, 40294, 34517, 19553, 35718, 45276, 42112, 38156, 30304, 6775, 4751, 4011, 29403, 33691,
   22941, 65433, 34249, 2705, 11934, 11250, 21708, 48708, 7552, 29142, 55498, 54618, 15227, 2515, 22493, 45589, 3206, 11504, 35567,
-  27503, 20967, 223, 36943, 42439, 59159, 60331, 52915, 45795, 59611, 10379, 843, 55597, 35829, 14325];
+  27503, 20967, 223, 36943, 42439, 59159, 60331, 52915, 45795, 59611, 10379, 843, 55597, 35829, 14325,
+  54901, 59733, 32069, 5637, 32745, 6633, 56185, 26745, 46889, 22537, 1049, 10113, 64254, 56638, 47662, 41270, 51678,
+  43870, 50782, 28358, 31238, 49442, 57282, 9618, 60418, 10770, 1964, 47468, 58724, 21556, 59084, 64028, 4956, 17768,
+  23392, 8736, 43912, 19728, 20819, 19118, 6033, 3247, 11679, 31819, 58477, 53309, 37645, 13325, 55401, 7409];   // ids 0-99: tools/aruco-bits.py
 function markerPath(id) {
   let d = '';
   for (let y = 0; y < 6; y++) for (let x = 0; x < 6; x++) {
@@ -1203,7 +1213,7 @@ function markerPath(id) {
   return d;
 }
 function renderMarkers() {
-  const c = optCode(), ids = { tl: 0, tr: 2, bl: 3, br: 5, tm: c ? 10 + c : 1, bm: c ? 30 + c : 4 };
+  const [tm, bm] = midMarkers(optCode()), ids = { tl: 0, tr: 2, bl: 3, br: 5, tm, bm };
   document.querySelectorAll('.sheet .marker').forEach(m => {
     const id = ids[m.dataset.slot];
     m.dataset.id = id;
@@ -1397,7 +1407,8 @@ const Scanner = (() => {
   const ASSETS = ['scan/digits.js', 'scan/letters.js', 'scan/reader-ondevice.js'];
   // Marker ids: corners 0, 2, 3, 5; middles 1 / 4 on the classic sheet, else 10 + code (top) and 30 + code (bottom).
   const CORNERS = [0, 2, 3, 5];
-  const codeFromId = id => id === 1 || id === 4 ? 0 : id > 10 && id < 26 ? id - 10 : id > 30 && id < 46 ? id - 30 : null;
+  const codeFromId = id => id === 1 || id === 4 ? 0 : id > 10 && id < 26 ? id - 10 : id > 30 && id < 46 ? id - 30
+    : id >= 50 && id < 66 ? id - 50 + 16 : id >= 70 && id < 86 ? id - 70 + 16 : null;   // mirrors midMarkers()
   let TPL = null, scanCode = 0, codeSeen = true;
   function loadLayout(code) {
     const have = () => window.SCAN_LAYOUTS?.[code];
@@ -1601,8 +1612,9 @@ const Scanner = (() => {
     if (notes.length) notes.push('Check that each row lines up with its handwriting.');
     if (!codeSeen) notes.push('The middle markers weren’t visible, so the sheet is read with the chart’s current rows.');
     else if (scanCode !== optCode()) {
-      const on = Object.entries(codeOpts(scanCode)).filter(([, v]) => v).map(([k]) => OPT_LABEL[k]);
-      notes.push(on.length ? `This sheet has ${on.join(', ')} rows; applying switches the chart to match.` : 'This sheet has no extra rows; applying switches the chart to match.');
+      const o = codeOpts(scanCode), on = EXTRAS.filter(k => o[k]).map(k => OPT_LABEL[k]);
+      const rows = (on.length ? `${on.join(', ')} rows` : 'no extra rows') + (o.prog ? '' : ' and no prognosis row');
+      notes.push(`This sheet has ${rows}; applying switches the chart to match.`);
     }
     $('alignNote').hidden = !notes.length;
     $('markerChip').textContent = notes.join(' ');
