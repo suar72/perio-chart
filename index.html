@@ -1067,6 +1067,7 @@ function clearAll() {
   setDefaults();
   setMarkers(true);
   build();
+  try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}   // the saved copy goes too
 }
 
 // The sheet is laid out at A4 size inside 5 mm margins: 287 mm wide landscape, 200 mm wide portrait.
@@ -1295,6 +1296,80 @@ setDefaults();
 let startCode = +(new URLSearchParams(location.search).get('rows') ?? NaN);
 if (isNaN(startCode)) { try { startCode = +(localStorage.getItem('perio-rows') || 0); } catch (e) { startCode = 0; } }
 applyOpts(codeOpts(startCode || 0));
+
+/* ---------- autosave ----------
+   The chart is saved in this browser as you work and restored when the page or the installed app is
+   reopened, so closing it by accident loses nothing. It stays on this device. Clear erases it.
+   Skipped for ?rows= (build tools) and ?test= (scanner tests). */
+const DRAFT_KEY = 'perio-draft';
+const draftOff = /[?&](rows|test)=/.test(location.search);
+let draftTimer = 0, restoring = false;
+
+function collectDraft() {
+  for (const i of document.querySelectorAll('table.chart input')) if (i.dataset.k !== 'cal') stash[i.dataset.key] = i.value;
+  return {
+    v: 1, savedAt: Date.now(), rows: optCode(), numbering: document.getElementById('numbering').value, markers: markersShown(),
+    missing: [...missing],
+    values: Object.fromEntries(Object.entries(stash).filter(([, v]) => v)),
+    header: Object.fromEntries([...document.querySelectorAll('.sheet header .field')].map(f => [f.querySelector('label').textContent, f.querySelector('input').value])),
+    checks: Object.fromEntries([...document.querySelectorAll('.sheet label.ck input')].map(i => [i.parentElement.textContent.trim(), i.checked])),
+    lines: { dx: [...document.querySelectorAll('.dx .wline')].map(i => i.value), tx: [...document.querySelectorAll('.tx .wline')].map(i => i.value) },
+    ink: [...document.querySelectorAll('#inkLayer img')].map(el => ({ key: el.dataset.key, src: el.src,
+      x: parseFloat(el.style.left), y: parseFloat(el.style.top), w: parseFloat(el.style.width), h: parseFloat(el.style.height) })),
+  };
+}
+// Anything worth restoring (today's date alone isn't).
+const draftHasData = d => Object.keys(d.values).length || d.missing.length || d.ink.length ||
+  Object.entries(d.header).some(([k, v]) => v && k !== 'Date') || Object.values(d.checks).some(Boolean) ||
+  [...d.lines.dx, ...d.lines.tx].some(Boolean);
+
+function saveDraftNow() {
+  if (draftOff || restoring) return;
+  clearTimeout(draftTimer);
+  const d = collectDraft();
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); }
+  catch (e) {   // storage full: keep the values, drop the copied handwriting images
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...d, ink: [] })); } catch (e2) {}
+  }
+}
+const saveDraft = () => { clearTimeout(draftTimer); draftTimer = setTimeout(saveDraftNow, 400); };
+['input', 'change', 'click'].forEach(t => document.addEventListener(t, saveDraft));
+window.addEventListener('pagehide', saveDraftNow);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveDraftNow(); });
+
+function putLines(inputs, values) {
+  inputs.forEach((inp, i) => { inp.value = i < inputs.length - 1 ? values[i] || '' : values.slice(i).filter(Boolean).join(' '); });
+}
+function restoreDraft() {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(DRAFT_KEY)); } catch (e) {}
+  if (!d || d.v !== 1 || !draftHasData(d)) return;
+  restoring = true;
+  for (const k in stash) delete stash[k];
+  Object.assign(stash, d.values);
+  missing.clear();
+  d.missing.forEach(t => missing.add(t));
+  document.getElementById('numbering').value = d.numbering || 'fdi';
+  document.getElementById('upper').innerHTML = document.getElementById('lower').innerHTML = '';   // build() fills from the stash
+  applyOpts(codeOpts(d.rows || 0));
+  document.querySelectorAll('.sheet header .field').forEach(f => {
+    const v = d.header[f.querySelector('label').textContent];
+    if (v != null) f.querySelector('input').value = v;
+  });
+  document.querySelectorAll('.sheet label.ck input').forEach(i => { i.checked = !!d.checks[i.parentElement.textContent.trim()]; });
+  putLines([...document.querySelectorAll('.dx .wline')], d.lines.dx);
+  putLines([...document.querySelectorAll('.tx .wline')], d.lines.tx);
+  d.ink.forEach(img => setHandwriting(img.key, img));
+  setMarkers(d.markers !== false);
+  summarize();
+  restoring = false;
+  const at = new Date(d.savedAt), today = at.toDateString() === new Date().toDateString();
+  const when = at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + (today ? '' : ', ' + at.toLocaleDateString());
+  document.getElementById('toastText').textContent = `Restored the chart you were working on (saved ${when}). Clear starts a new one.`;
+  document.getElementById('toast').hidden = false;
+  setTimeout(() => { document.getElementById('toast').hidden = true; }, 8000);
+}
+if (!draftOff) restoreDraft();
 
 // App-bar segmented controls drive the (hidden) selects the rest of the page reads.
 document.querySelectorAll('.appbar .seg').forEach(seg => {
