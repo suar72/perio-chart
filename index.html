@@ -156,6 +156,13 @@
   table.chart td.lbl { font-weight: 600; font-size: 9px; padding: 0 1.2mm; border-left-width: 1.5px; line-height: 1.1; }
   table.chart td.lbl small { display: block; font-weight: 400; color: #555; font-size: 7.5px; }
   table.chart td.mid { border-left: 2px solid #6e6e6e; }  /* midline */
+  /* Safari drops collapsed table borders when the page is zoomed (the fitted screen view). Safari only:
+     draw each cell's right and bottom edge and the table's top and left edge instead (same lines). */
+  @supports (background: -webkit-named-image(i)) {
+    table.chart { border-collapse: separate; border-spacing: 0; border-top: 1.5px solid var(--line); border-left: 1.5px solid var(--line); }
+    table.chart td { border-top: 0; border-left: 0; }
+    table.chart td.mid { border-left: 2px solid #6e6e6e; }
+  }
   tr.pd td { height: 6.8mm; }
   tr.img td { height: 13.4mm; cursor: pointer; }
   tr.img .pic { position: relative; height: 13.4mm; }
