@@ -84,6 +84,18 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, .2); transition: transform .25s cubic-bezier(.3, .7, .4, 1); }
   .switch input:checked + .track { background: #30c759; }
   .switch input:checked + .track::after { transform: translateX(15px); }
+  .menuwrap { position: relative; }
+  .badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--ui-accent); color: #fff; font-size: 11px; font-weight: 700; }
+  .popover { position: absolute; top: calc(100% + 8px); left: 0; z-index: 15; width: 290px; padding: 10px 6px 8px; border-radius: 14px;
+    background: var(--ui-surface); box-shadow: 0 0 0 .5px var(--ui-sep), 0 12px 32px rgba(0, 0, 0, .16); font: 13px/1.35 var(--ui-font); color: var(--ui-text);
+    transform-origin: top left; animation: pop .18s cubic-bezier(.2, .8, .2, 1); }
+  @keyframes pop { from { opacity: 0; transform: scale(.96); } }
+  @media (prefers-reduced-motion: reduce) { .popover { animation: none; } }
+  .pop-title { margin: 0 10px 4px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--ui-sub); }
+  .switch.row { display: flex; justify-content: space-between; width: 100%; padding: 8px 10px; border-radius: 8px; }
+  .switch.row:hover { background: var(--ui-fill-2); }
+  .switch.row small { display: block; color: var(--ui-sub); font-size: 11.5px; }
+  .pop-note { margin: 6px 10px 2px; font-size: 12px; color: var(--ui-sub); }
   .notice { max-width: 1240px; margin: 0 auto; padding: 0 16px 10px; display: flex; }
   .notice > div { display: inline-flex; align-items: center; gap: 10px; padding: 6px 6px 6px 12px; border-radius: 10px;
     background: var(--ui-amber-bg); color: var(--ui-amber); font: 500 13px/1.3 var(--ui-font); }
@@ -91,9 +103,10 @@
   .page-hint { max-width: 1240px; margin: 14px auto 0; padding: 0 16px; text-align: center; font: 12.5px/1.4 var(--ui-font); color: var(--ui-sub); }
 
   /* ---------- sheet ---------- */
-  .sheet { width: 287mm; margin: 12px auto; padding: 0; background: #fff; }
-  @media screen { .sheet { padding: 6mm; width: calc(287mm + 12mm); margin: 14px auto 40px; border-radius: 6px; box-shadow: var(--ui-shadow);
-    zoom: var(--screen-zoom, 1); } }   /* fills the window width (fitSheet), whatever paper is chosen */
+  .sheet { --sheet-w: 287mm; width: var(--sheet-w); margin: 12px auto; padding: 0; background: #fff; }
+  .sheet.portrait { --sheet-w: 200mm; }
+  @media screen { .sheet { padding: 6mm; width: calc(var(--sheet-w) + 12mm); margin: 14px auto; border-radius: 6px; box-shadow: var(--ui-shadow);
+    zoom: var(--screen-zoom, 1); } }   /* whole sheet fits the window (fitSheet), whatever paper is chosen */
   @media print { .sheet { zoom: var(--print-zoom, 1); } }          /* paper size: setPaper */
   body.exporting .sheet { zoom: 1 !important; }
   /* Scan markers (ArUco 4x4, ids 0-5): 4 corners + middle of top and bottom edges. */
@@ -105,14 +118,14 @@
   .boxes input.numwarn, .boxes input.badval { color: #b45309; box-shadow: inset 0 0 0 2.5px #f08c00; }   /* value that doesn't make sense */
   .sheet { position: relative; }
   /* Handwriting copied from a scan (name, examiner, diagnosis, treatment plan), drawn over its fields. */
-  .inklayer { position: absolute; left: 0; top: 0; width: 287mm; height: 100%; pointer-events: none; z-index: 2; }
+  .inklayer { position: absolute; left: 0; top: 0; width: var(--sheet-w); height: 100%; pointer-events: none; z-index: 2; }
   @media screen { .inklayer { left: 6mm; top: 6mm; } }
   body.exporting .inklayer { left: 0; top: 0; }
   .inklayer img { position: absolute; }
   .sheet.no-markers .marker { visibility: hidden; }
   .sheet.no-markers .scanbar { display: none; }
   /* PDF export renders the sheet exactly as printed. */
-  body.exporting .sheet { padding: 0; width: 287mm; margin: 0; box-shadow: none; }
+  body.exporting .sheet { padding: 0; width: var(--sheet-w); margin: 0; box-shadow: none; }
   body.exporting .boxes input.numwarn, body.exporting .boxes input.badval { box-shadow: none; color: inherit; }
 
   header.top { display: flex; align-items: center; gap: 2mm 3mm; margin-bottom: 1.6mm; }
@@ -174,6 +187,49 @@
   tr.teeth td.missing { color: #999; text-decoration: line-through; }
 
   .gap { height: 1.8mm; }
+
+  /* ----- optional rows: CEJ–GM, CAL (calculated), BOP (+/−), plaque (✓) ----- */
+  tr.gm td { height: 5.4mm; }
+  tr.cal td { height: 4.6mm; background: #f7f7f7; }
+  tr.mark td { height: 4.4mm; }
+  .boxes input[data-k=cal] { font-weight: 600; font-size: 11px; color: #3a3a3a; cursor: default; }
+  .boxes input[data-k=bop], .boxes input[data-k=pi] { cursor: pointer; caret-color: transparent; font-size: 12px; }
+  .boxes input[data-k=bop].pos { color: #d70015; }
+  .boxes input[data-k=bop].neg { color: #6b6b6b; }
+  .boxes input[data-k=pi] { color: #1a4fb8; }
+  .count-opt { display: none; }
+  .sheet.has-bop .count-opt.bop, .sheet.has-pi .count-opt.pi { display: contents; }
+  .brk { display: none; }
+  .opts .push { margin-left: auto; }
+  .l-short { display: none; }
+  .sheet.portrait .l-long { display: none; }
+  .sheet.portrait .l-short { display: inline; }
+
+  /* 1–2 optional rows: same landscape page, a little tighter */
+  .sheet.compact table.chart td { height: 4.4mm; }
+  .sheet.compact tr.pd td { height: 5.8mm; }
+  .sheet.compact tr.gm td { height: 4.7mm; }
+  .sheet.compact tr.cal td { height: 3.9mm; }
+  .sheet.compact tr.mark td { height: 3.8mm; }
+  .sheet.compact tr.teeth td { height: 5mm; }
+  .sheet.compact tr.img td, .sheet.compact tr.img .pic { height: 7.2mm; }
+  .sheet.compact .gap { height: 1.2mm; }
+
+  /* 3–4 optional rows: portrait page (print on A4) */
+  .sheet.portrait header.top { flex-wrap: wrap; row-gap: 2.2mm; }
+  .sheet.portrait header.top > .marker[data-slot=tl] { order: 1; }
+  .sheet.portrait header.top > h1 { order: 2; flex: 1; }
+  .sheet.portrait header.top > .marker[data-slot=tm] { order: 3; }
+  .sheet.portrait header.top > .visit { order: 4; flex: 1; justify-content: flex-end; }
+  .sheet.portrait header.top > .marker[data-slot=tr] { order: 5; }
+  .sheet.portrait header.top > .brk { order: 6; display: block; flex-basis: 100%; height: 0; }
+  .sheet.portrait header.top > .fields { order: 7; }
+  .sheet.portrait header.top > .fields.right { order: 8; }
+  .sheet.portrait table.chart col.lbl { width: 17mm; }
+  .sheet.portrait .boxes input { font-size: 11px; }
+  .sheet.portrait tr.teeth td:not(.lbl) { font-size: 10.5px; }
+  .sheet.portrait .sub::after { font-size: 5.5px; }
+  .sheet.portrait tr.img td, .sheet.portrait tr.img .pic { height: 10.5mm; }
 
   footer.bottom { display: grid; grid-template-columns: 1fr 1.35fr; gap: 4mm; margin-top: 1.8mm; }
   .box { border: 1px solid var(--line); padding: 1.4mm 2.2mm 1.6mm; }
@@ -341,6 +397,17 @@
       <div class="seg" data-for="numbering" role="group" aria-label="Tooth numbering">
         <button data-v="fdi">FDI</button><button data-v="uni">Universal</button>
       </div>
+      <div class="menuwrap">
+        <button class="btn" id="rowsBtn" aria-haspopup="true" aria-expanded="false" onclick="toggleRowsMenu()">Rows <span id="rowsCount" class="badge" hidden></span></button>
+        <div class="popover" id="rowsMenu" role="menu" hidden>
+          <p class="pop-title">Extra rows</p>
+          <label class="switch row"><span>CEJ–GM <small>recession +, mm</small></span><input type="checkbox" data-opt="gm"><span class="track"></span></label>
+          <label class="switch row"><span>CAL <small>PD + CEJ–GM, calculated</small></span><input type="checkbox" data-opt="cal"><span class="track"></span></label>
+          <label class="switch row"><span>BOP <small>+ / −</small></span><input type="checkbox" data-opt="bop"><span class="track"></span></label>
+          <label class="switch row"><span>Plaque <small>✓</small></span><input type="checkbox" data-opt="pi"><span class="track"></span></label>
+          <p class="pop-note" id="rowsNote">Up to two extra rows fit the usual page. Three or more switch to a portrait page; print it on A4.</p>
+        </div>
+      </div>
       <label class="switch" title="The six black squares and scan instructions. Needed only on sheets you will scan.">
         <input type="checkbox" id="showMarkers" checked onchange="setMarkers(this.checked)"><span class="track"></span>Scan markers
       </label>
@@ -352,6 +419,7 @@
       <button class="btn primary" onclick="Scanner.open(true)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.4-2h5.8l1.4 2h2.2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.4"/></svg>Scan sheet</button>
     </div>
   </div>
+  <div class="notice" id="paperHint" role="status" hidden><div><span>Portrait page: print on A4 for room to write.</span><button class="btn" onclick="choosePaper('A4')">Use A4</button></div></div>
   <div class="notice" id="valueWarn" role="status" hidden><div><span id="valueWarnText"></span><button class="btn" id="furcConvert" onclick="convertFurc()">Convert to I–III</button></div></div>
 </header>
 <select id="numbering" onchange="build()" hidden aria-hidden="true">
@@ -369,13 +437,13 @@
 <div class="sheet">
   <div class="inklayer" id="inkLayer" aria-hidden="true"></div>
   <header class="top">
-    <div class="marker" data-id="0"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM2 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div>
+    <div class="marker" data-slot="tl" data-id="0"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM2 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div>
     <h1>Periodontal Chart</h1>
     <div class="fields">
       <div class="field"><label>Patient</label><input></div>
       <div class="field"><label>HN</label><input></div>
     </div>
-    <div class="marker" data-id="1"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div>
+    <div class="marker" data-slot="tm" data-id="1"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div>
     <div class="fields right">
       <div class="field"><label>Age</label><input></div>
       <div class="field"><label>Date</label><input id="fDate"></div>
@@ -386,7 +454,8 @@
       <label class="ck"><input type="checkbox">Re-eval</label>
       <label class="ck"><input type="checkbox">SPT</label>
     </div>
-    <div class="marker" data-id="2"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div>
+    <span class="brk"></span>
+    <div class="marker" data-slot="tr" data-id="2"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div>
   </header>
 
   <div class="jaw"><table class="chart" id="upper"></table></div>
@@ -396,20 +465,20 @@
   <footer class="bottom">
     <div class="box">
       <h3>Diagnosis</h3>
-      <input class="wline">
-      <input class="wline">
-      <input class="wline">
+      <div class="dx"><input class="wline"><input class="wline"><input class="wline"></div>
       <h3 class="next">Overall prognosis</h3>
       <div class="opts">
         <label class="ck"><input type="checkbox">Good</label>
         <label class="ck"><input type="checkbox">Fair</label>
         <label class="ck"><input type="checkbox">Poor</label>
+        <span class="count-opt bop"><b class="push">BOP %</b><input class="count" id="sBOP" readonly tabindex="-1"></span>
+        <span class="count-opt pi"><b><span class="l-long">Plaque %</span><span class="l-short">PI %</span></b><input class="count" id="sPI" readonly tabindex="-1"></span>
       </div>
       <div class="opts" style="margin-top:.8mm">
-        <b>Teeth present</b><input class="count" id="sTeeth" readonly tabindex="-1">
-        <b>Sites PD ≥4 mm</b><input class="count" id="s4" readonly tabindex="-1">
-        <b>≥6 mm</b><input class="count" id="s6" readonly tabindex="-1">
-        <b>Furcation teeth</b><input class="count" id="sF" readonly tabindex="-1">
+        <b><span class="l-long">Teeth present</span><span class="l-short">Teeth</span></b><input class="count" id="sTeeth" readonly tabindex="-1">
+        <b><span class="l-long">Sites PD ≥4 mm</span><span class="l-short">PD ≥4</span></b><input class="count" id="s4" readonly tabindex="-1">
+        <b><span class="l-long">≥6 mm</span><span class="l-short">≥6</span></b><input class="count" id="s6" readonly tabindex="-1">
+        <b><span class="l-long">Furcation teeth</span><span class="l-short">Furc.</span></b><input class="count" id="sF" readonly tabindex="-1">
       </div>
     </div>
     <div class="box">
@@ -418,7 +487,7 @@
     </div>
   </footer>
   <div class="scanbar">
-    <div class="marker" data-id="3"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div><span>To scan: keep all six black squares in the photo, sheet flat, good light.</span><div class="marker" data-id="4"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div><span>Scan it with “Scan filled sheet” at suar72.github.io/perio-chart</span><div class="marker" data-id="5"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div>
+    <div class="marker" data-slot="bl" data-id="3"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div><span>To scan: keep all six black squares in the photo, sheet flat, good light.</span><div class="marker" data-slot="bm" data-id="4"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div><span>Scan it with “Scan filled sheet” at suar72.github.io/perio-chart</span><div class="marker" data-slot="br" data-id="5"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div>
   </div>
 </div>
 </main>
@@ -520,37 +589,65 @@ function universal(t) {
   return q === 1 ? 9 - u : q === 2 ? 8 + u : q === 3 ? 25 - u : 24 + u;
 }
 
-// [label, sublabel, kind, edge, roots, view]
-const UPPER_ROWS = [
-  ['Prognosis', '', 'prog', 'edge-top'],
-  ['Mobility', '', 'mob'],
-  ['Furcation', 'buccal', 'furc1'],
-  ['PD', 'buccal', 'pd'],
-  ['', 'buccal', 'img', '', 'up', 'b'],
-  ['Maxilla', '', 'teeth'],
-  ['', 'palatal', 'img', '', 'down', 'p'],
-  ['PD', 'palatal', 'pd'],
-  ['Furcation', 'palatal', 'furc2', 'edge-bot'],
-];
-const LOWER_ROWS = [
-  ['Furcation', 'lingual', 'furc1', 'edge-top'],
-  ['PD', 'lingual', 'pd'],
-  ['', 'lingual', 'img', '', 'up', 'l'],
-  ['Mandible', '', 'teeth'],
-  ['', 'buccal', 'img', '', 'down', 'b'],
-  ['PD', 'buccal', 'pd'],
-  ['Furcation', 'buccal', 'furc1'],
-  ['Mobility', '', 'mob'],
-  ['Prognosis', '', 'prog', 'edge-bot'],
-];
+/* ---------- optional rows ----------
+   CEJ–GM (recession +, mm), CAL (PD + CEJ–GM, calculated), BOP (+/−) and plaque (✓), off by default.
+   The combination is a 4-bit code (gm 1, cal 2, bop 4, plaque 8; CAL needs CEJ–GM) printed into the
+   two middle scan markers, so the scanner knows which rows a sheet has. Code 0 is the classic sheet. */
+const opts = { gm: false, cal: false, bop: false, pi: false };
+const optCode = () => (opts.gm ? 1 : 0) | (opts.cal ? 2 : 0) | (opts.bop ? 4 : 0) | (opts.pi ? 8 : 0);
+const optCount = () => Object.values(opts).filter(Boolean).length;
+const sheetMode = () => !optCount() ? 'classic' : optCount() <= 2 ? 'compact' : 'portrait';
+const codeOpts = c => ({ gm: !!(c & 1), cal: !!(c & 2), bop: !!(c & 4), pi: !!(c & 8) });
+const OPT_LABEL = { gm: 'CEJ–GM', cal: 'CAL', bop: 'BOP', pi: 'Plaque' };
 
-const inp = kind => `<input data-k="${kind}" inputmode="${kind === 'pd' ? 'numeric' : 'text'}" maxlength="${kind === 'furc' ? 3 : 2}" autocomplete="off">`;
+// One surface's measurement rows, outermost first: BOP, plaque, CEJ–GM, PD, CAL (CAL sits next to the teeth).
+function surfaceRows(sub, surf) {
+  const r = [];
+  if (opts.bop) r.push(['BOP', sub, 'bop', '', '', '', surf]);
+  if (opts.pi) r.push(['Plaque', sub, 'pi', '', '', '', surf]);
+  if (opts.gm) r.push(['CEJ–GM', sub, 'gm', '', '', '', surf]);
+  r.push(['PD', sub, 'pd', '', '', '', surf]);
+  if (opts.cal) r.push(['CAL', sub, 'cal', '', '', '', surf]);
+  return r;
+}
+// [label, sublabel, kind, edge, roots, view, surface]
+function upperRows() {
+  return [
+    ['Prognosis', '', 'prog', 'edge-top'],
+    ['Mobility', '', 'mob'],
+    ['Furcation', 'buccal', 'furc1'],
+    ...surfaceRows('buccal', 'UB'),
+    ['', 'buccal', 'img', '', 'up', 'b'],
+    ['Maxilla', '', 'teeth'],
+    ['', 'palatal', 'img', '', 'down', 'p'],
+    ...surfaceRows('palatal', 'UP').reverse(),
+    ['Furcation', 'palatal', 'furc2', 'edge-bot'],
+  ];
+}
+function lowerRows() {
+  return [
+    ['Furcation', 'lingual', 'furc1', 'edge-top'],
+    ...surfaceRows('lingual', 'LL'),
+    ['', 'lingual', 'img', '', 'up', 'l'],
+    ['Mandible', '', 'teeth'],
+    ['', 'buccal', 'img', '', 'down', 'b'],
+    ...surfaceRows('buccal', 'LB').reverse(),
+    ['Furcation', 'buccal', 'furc1'],
+    ['Mobility', '', 'mob'],
+    ['Prognosis', '', 'prog', 'edge-bot'],
+  ];
+}
 
-function cellHTML(kind, t) {
+const INPUT_MODE = { pd: 'numeric', gm: 'text', bop: 'none', pi: 'none', cal: 'none' };
+const inp = (kind, extra = '') => `<input data-k="${kind}" inputmode="${INPUT_MODE[kind] || 'text'}" maxlength="${kind === 'furc' || kind === 'gm' ? 3 : 2}" autocomplete="off"${extra}>`;
+const sites = (kind, surf) => [0, 1, 2].map(n => inp(kind, ` data-surf="${surf}" data-site="${n}"` +
+  (kind === 'cal' || kind === 'bop' || kind === 'pi' ? ' readonly' : '') + (kind === 'cal' ? ' tabindex="-1"' : ''))).join('');
+
+function cellHTML(kind, t, surf) {
   switch (kind) {
     case 'mob':   return `<div class="boxes">${inp('mob')}</div>`;
     case 'prog':  return `<div class="boxes">${inp('prog')}</div>`;
-    case 'pd':    return `<div class="boxes">${inp('pd')}${inp('pd')}${inp('pd')}</div>`;
+    case 'pd': case 'gm': case 'cal': case 'bop': case 'pi': return `<div class="boxes">${sites(kind, surf)}</div>`;
     case 'furc1': return isMolar(t) ? `<div class="boxes">${inp('furc')}</div>` : '<div class="na"></div>';
     case 'furc2': {
       if (!isMolar(t)) return '<div class="na"></div>';
@@ -715,20 +812,25 @@ function restoreVals(vals) {
 function buildTable(id, teeth, rows) {
   const uni = document.getElementById('numbering').value === 'uni';
   let h = '<colgroup><col class="lbl">' + teeth.map(() => '<col>').join('') + '</colgroup>';
-  for (const [label, sub, kind, edge, roots, view] of rows) {
-    h += `<tr class="${['pd', 'img', 'teeth'].includes(kind) ? kind : ''} ${edge || ''}">`;
+  const ROW_CLASS = { pd: 'pd', img: 'img', teeth: 'teeth', gm: 'gm', cal: 'cal', bop: 'mark', pi: 'mark' };
+  for (const [label, sub, kind, edge, roots, view, surf] of rows) {
+    h += `<tr class="${ROW_CLASS[kind] || ''} ${edge || ''}" data-kind="${kind}">`;
     h += `<td class="lbl">${label}${sub ? `<small>${sub}</small>` : ''}</td>`;
     teeth.forEach((t, i) => {
       const cls = [i === 8 ? 'mid' : '', missing.has(t) ? 'missing' : ''].join(' ');
       const inner = kind === 'teeth' ? (uni ? universal(t) : t)
                   : kind === 'img' ? toothSVG(t, roots, view)
-                  : cellHTML(kind, t);
+                  : cellHTML(kind, t, surf);
       h += `<td class="${cls}" data-t="${t}">${inner}</td>`;
     });
     h += '</tr>';
   }
   const table = document.getElementById(id);
   table.innerHTML = h;
+  // A stable key per box (kind, surface, tooth, position) so values survive switching rows on and off.
+  table.querySelectorAll('td[data-t]').forEach(td => td.querySelectorAll('input').forEach((i, n) => {
+    i.dataset.key = [i.dataset.k, i.dataset.surf || td.closest('tr').dataset.kind, td.dataset.t, n].join('.');
+  }));
   // One X through the whole column of a missing tooth, like crossing it out by hand.
   // Positioned in % of the table width so it holds for print and Letter zoom.
   const wrap = table.parentElement;
@@ -744,10 +846,10 @@ function buildTable(id, teeth, rows) {
 }
 
 function build() {
-  const vals = saveVals();
-  buildTable('upper', UPPER, UPPER_ROWS);
-  buildTable('lower', LOWER, LOWER_ROWS);
-  if (vals.length) restoreVals(vals);
+  const keep = Object.fromEntries([...document.querySelectorAll('table.chart input')].map(i => [i.dataset.key, i.value]));
+  buildTable('upper', UPPER, upperRows());
+  buildTable('lower', LOWER, lowerRows());
+  document.querySelectorAll('table.chart input').forEach(i => { if (keep[i.dataset.key] != null) i.value = keep[i.dataset.key]; });
   document.querySelectorAll('table.chart input').forEach(styleInput);
   summarize();
 }
@@ -764,6 +866,19 @@ function summarize() {
   set('s4', pd.filter(v => v >= 4).length, pd.length > 0);
   set('s6', pd.filter(v => v >= 6).length, pd.length > 0);
   set('sF', new Set(furc.map(i => i.closest('td').dataset.t)).size, furc.length > 0);
+  // CAL = PD + CEJ–GM (recession +); a blank CEJ–GM counts as 0 (margin at the CEJ).
+  document.querySelectorAll('table.chart input[data-k=cal]').forEach(c => {
+    const at = `[data-surf="${c.dataset.surf}"][data-site="${c.dataset.site}"]`, td = c.closest('td'), t = td.dataset.t;
+    const pdIn = document.querySelector(`td[data-t="${t}"] input[data-k=pd]${at}`), gmIn = document.querySelector(`td[data-t="${t}"] input[data-k=gm]${at}`);
+    const pd = pdIn?.value.trim(), gm = gmIn?.value.trim();
+    c.value = pd && !td.classList.contains('missing') && !isNaN(+pd) && !isNaN(+(gm || 0)) ? String(+pd + +(gm || 0)) : '';
+  });
+  // Full-mouth bleeding and plaque scores: share of all sites (6 per present tooth).
+  const allSites = (32 - missing.size) * 6;
+  const pct = k => ins.filter(i => i.dataset.k === k && i.value === (k === 'bop' ? '+' : '✓')).length;
+  const marked = k => ins.some(i => i.dataset.k === k && i.value);
+  if (opts.bop) set('sBOP', Math.round(pct('bop') / allSites * 100), marked('bop'));
+  if (opts.pi) set('sPI', Math.round(pct('pi') / allSites * 100), marked('pi'));
   checkValues();
 }
 
@@ -776,6 +891,7 @@ function valueIssue(kind, v) {
   if (v === '') return null;
   if (kind === 'pd' && +v > 15) return { cls: 'badval', tip: 'PD over 15 mm: check this value', key: 'pd' };
   if (kind === 'mob' && +v > 3) return { cls: 'badval', tip: 'Mobility is graded 0 to 3', key: 'mob' };
+  if (kind === 'gm' && (isNaN(+v) || +v > 15 || +v < -5)) return { cls: 'badval', tip: 'CEJ–GM is usually between −5 and 15 mm', key: 'gm' };
   if (kind === 'furc' && /\d/.test(v)) return { cls: 'numwarn', tip: FURC_TIP, key: 'furc' };
   return null;
 }
@@ -785,7 +901,7 @@ function markIssue(inp, issue) {
   inp.title = issue ? issue.tip : '';
 }
 function checkValues() {
-  const n = { pd: 0, mob: 0, furc: 0 };
+  const n = { pd: 0, mob: 0, furc: 0, gm: 0 };
   document.querySelectorAll('table.chart input').forEach(i => {
     const issue = i.closest('td.missing') ? null : valueIssue(i.dataset.k, i.value.trim());
     markIssue(i, issue);
@@ -794,6 +910,7 @@ function checkValues() {
   const parts = [];
   if (n.pd) parts.push(`${n.pd} PD over 15 mm`);
   if (n.mob) parts.push(`${n.mob} mobility over 3`);
+  if (n.gm) parts.push(`${n.gm} CEJ–GM out of range`);
   if (n.furc) parts.push(`${n.furc} furcation written as ${n.furc === 1 ? 'a number' : 'numbers'} (use I, II or III)`);
   document.getElementById('valueWarn').hidden = !parts.length;
   document.getElementById('valueWarnText').textContent = parts.length ? 'Check: ' + parts.join(' · ') : '';
@@ -805,6 +922,7 @@ function convertFurc() {
 }
 
 function styleInput(i) {
+  if (i.dataset.k === 'bop') { i.classList.toggle('pos', i.value === '+'); i.classList.toggle('neg', i.value === '−'); return; }
   if (i.dataset.k !== 'pd') return;
   const v = parseInt(i.value, 10);
   i.classList.toggle('deep', v >= 4 && v < 6);
@@ -818,8 +936,32 @@ document.addEventListener('input', e => {
   if (k === 'mob') e.target.value = v.replace(/\D/g, '').slice(0, 1);
   if (k === 'furc') e.target.value = v.toUpperCase().replace(/[^I1-3]/g, '');
   if (k === 'prog') e.target.value = v.toUpperCase().replace(/[^GFPQH]/g, '').slice(0, 1);
+  if (k === 'gm') e.target.value = v.replace(/[–−]/g, '-').replace(/[^\d-]/g, '').replace(/(?!^)-/g, '').slice(0, 3);
   styleInput(e.target);
   summarize();
+});
+
+/* BOP is + (bleeding) or − (none); plaque is ✓. Tap a site to step through, or type + / − / any key. */
+const MARK_CYCLE = { bop: ['', '+', '−'], pi: ['', '✓'] };
+function setMark(i, v) {
+  i.value = v;
+  i.classList.toggle('pos', v === '+');
+  i.classList.toggle('neg', v === '−');
+  i.dispatchEvent(new Event('input', { bubbles: true }));
+}
+document.addEventListener('click', e => {
+  const i = e.target.closest('input[data-k=bop], input[data-k=pi]');
+  if (!i || i.closest('td.missing')) return;
+  const c = MARK_CYCLE[i.dataset.k];
+  setMark(i, c[(c.indexOf(i.value) + 1) % c.length]);
+});
+document.addEventListener('keydown', e => {
+  const i = e.target.closest?.('input[data-k=bop], input[data-k=pi]');
+  if (!i || e.key.length !== 1 || e.metaKey || e.ctrlKey) return;
+  e.preventDefault();
+  if (e.key === ' ') { i.click(); return; }
+  if (i.dataset.k === 'bop') setMark(i, e.key === '-' || e.key === '−' ? '−' : e.key === '+' || e.key === '=' ? '+' : i.value);
+  else setMark(i, '✓');
 });
 
 // Enter moves to the next box, like Tab.
@@ -890,7 +1032,7 @@ function clearAll() {
   if (!confirm('Clear every field on the chart?')) return;
   document.getElementById('inkLayer').innerHTML = '';
   missing.clear();
-  document.querySelectorAll('input').forEach(i => {
+  document.querySelectorAll('.sheet input').forEach(i => {
     if (i.type === 'checkbox') i.checked = false; else i.value = '';
   });
   setDefaults();
@@ -900,20 +1042,35 @@ function clearAll() {
 
 // The sheet is laid out for A4 (287 mm wide inside 5 mm margins) and zoomed for other paper when
 // printed or exported. On screen it ignores the paper and fits the window instead (fitSheet).
-const PAPER = { A4: [1, 5], A5: [210 / 297, 3.5], letter: [269.4 / 287, 5] };
+const PAPER = { A4: [1, 5], A5: [210 / 297, 3.5], letter: [269.4 / 287, 5] };              // landscape sheet, 287 × ≤200 mm
+const PAPER_PORTRAIT = { A4: [1, 5], A5: [141 / 200, 3.5], letter: [269.4 / 287, 5] };    // portrait sheet, 200 × ≤287 mm
+const sheetW = () => sheetMode() === 'portrait' ? 200 : 287;
+const paperFor = p => (sheetMode() === 'portrait' ? PAPER_PORTRAIT : PAPER)[p];
 function setPaper(p) {
-  const [zoom, margin] = PAPER[p];
-  document.getElementById('pagesize').textContent = `@page { size: ${p} landscape; margin: ${margin}mm; }`;
+  const [zoom, margin] = paperFor(p), orient = sheetMode() === 'portrait' ? 'portrait' : 'landscape';
+  document.getElementById('pagesize').textContent = `@page { size: ${p} ${orient}; margin: ${margin}mm; }`;
   document.documentElement.style.setProperty('--print-zoom', zoom);
+  document.getElementById('paperHint').hidden = !(sheetMode() === 'portrait' && p === 'A5');
+}
+function choosePaper(p) {
+  const sel = document.getElementById('paper');
+  sel.value = p;
+  sel.dispatchEvent(new Event('change'));
+  document.querySelectorAll('.appbar .seg[data-for=paper] button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === p)));
 }
 
-// Screen view: the sheet fills the width of the window, so it reads clearly on a large display;
-// on a phone it stops at half size and scrolls sideways.
-const SHEET_PX = (287 + 12) * 96 / 25.4;   // sheet plus its 6 mm screen padding, in CSS px at 100%
+// Screen view: the whole sheet fits in the window (width and height), so the chart is seen at once
+// at any screen size; on a phone it stops at half size and scrolls.
 function fitSheet() {
   const desk = document.querySelector('.desk'), cs = getComputedStyle(desk);
   const room = desk.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-  document.documentElement.style.setProperty('--screen-zoom', Math.max(0.5, room / SHEET_PX).toFixed(4));
+  const sheet = document.querySelector('.sheet');
+  const zoom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--screen-zoom')) || 1;
+  const widthPx = (sheetW() + 12) * 96 / 25.4;                       // sheet + 6 mm screen padding, CSS px at 100%
+  const sheetH = sheet.getBoundingClientRect().height / zoom;       // its height at 100%
+  const top = desk.getBoundingClientRect().top + window.scrollY;     // app bar and hint above it
+  const roomH = window.innerHeight - top - 28;                         // sheet margins (14 px above and below)
+  document.documentElement.style.setProperty('--screen-zoom', Math.max(0.5, Math.min(room / widthPx, roomH / sheetH)).toFixed(4));
 }
 window.addEventListener('resize', fitSheet);
 
@@ -981,7 +1138,7 @@ async function exportPdf() {
   const sheet = document.querySelector('.sheet');
   try {
     await loadPdfLibs();
-    const paper = document.getElementById('paper').value, [zoom, margin] = PAPER[paper];
+    const paper = document.getElementById('paper').value, [zoom, margin] = paperFor(paper);
     document.body.classList.add('exporting');   // true size, no screen padding
     const canvas = await html2canvas(sheet, { scale: PDF_SCALE, backgroundColor: '#ffffff', logging: false, onclone: inlineSvgLook });
     // html2canvas can't draw the full-column X over missing teeth; draw it onto the image here.
@@ -994,8 +1151,8 @@ async function exportPdf() {
       const r = x.getBoundingClientRect(), x0 = (r.left - sr.left) * k, y0 = (r.top - sr.top) * k, x1 = x0 + r.width * k, y1 = y0 + r.height * k;
       ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.moveTo(x1, y0); ctx.lineTo(x0, y1); ctx.stroke();
     });
-    const pdf = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: paper.toLowerCase() });
-    const w = 287 * zoom, h = canvas.height / canvas.width * w;
+    const pdf = new window.jspdf.jsPDF({ orientation: sheetMode() === 'portrait' ? 'portrait' : 'landscape', unit: 'mm', format: paper.toLowerCase() });
+    const w = sheetW() * zoom, h = canvas.height / canvas.width * w;
     pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, w, h);
     pdf.setProperties({ title: pdfName().replace(/\.pdf$/, ''), creator: 'Periodontal Chart' });
     pdf.save(pdfName());
@@ -1010,10 +1167,79 @@ async function exportPdf() {
   btn.textContent = label;
 }
 
+/* ---------- scan markers that carry the row code ----------
+   ArUco 4×4 (first 50 of DICT_4X4_100; the same as DICT_4X4_50). Corners are always 0, 2, 3, 5.
+   Middle markers: 1 and 4 on the classic sheet; 10 + code (top) and 30 + code (bottom) with extra rows. */
+const ARUCO_BITS = [45906, 42511, 19251, 40294, 34517, 19553, 35718, 45276, 42112, 38156, 30304, 6775, 4751, 4011, 29403, 33691,
+  22941, 65433, 34249, 2705, 11934, 11250, 21708, 48708, 7552, 29142, 55498, 54618, 15227, 2515, 22493, 45589, 3206, 11504, 35567,
+  27503, 20967, 223, 36943, 42439, 59159, 60331, 52915, 45795, 59611, 10379, 843, 55597, 35829, 14325];
+function markerPath(id) {
+  let d = '';
+  for (let y = 0; y < 6; y++) for (let x = 0; x < 6; x++) {
+    const border = x === 0 || y === 0 || x === 5 || y === 5;
+    if (border || ARUCO_BITS[id] >> ((y - 1) * 4 + (x - 1)) & 1) d += `M${x} ${y}h1v1h-1z`;
+  }
+  return d;
+}
+function renderMarkers() {
+  const c = optCode(), ids = { tl: 0, tr: 2, bl: 3, br: 5, tm: c ? 10 + c : 1, bm: c ? 30 + c : 4 };
+  document.querySelectorAll('.sheet .marker').forEach(m => {
+    const id = ids[m.dataset.slot];
+    m.dataset.id = id;
+    m.querySelector('path').setAttribute('d', markerPath(id));
+  });
+}
+
+// Note lines: fewer on the tighter landscape page.
+function setLines(box, n) {
+  const host = document.querySelector(box), have = [...host.querySelectorAll('.wline')];
+  for (let k = have.length; k < n; k++) host.insertAdjacentHTML('beforeend', '<input class="wline">');
+  have.slice(n).forEach(l => l.remove());
+}
+
+function applyOpts(next) {
+  Object.assign(opts, next);
+  if (opts.cal) opts.gm = true;                 // CAL is calculated from CEJ–GM
+  const sheet = document.querySelector('.sheet'), mode = sheetMode();
+  sheet.classList.toggle('compact', mode === 'compact');
+  sheet.classList.toggle('portrait', mode === 'portrait');
+  sheet.classList.toggle('has-bop', opts.bop);
+  sheet.classList.toggle('has-pi', opts.pi);
+  setLines('.dx', mode === 'compact' ? 2 : 3);
+  setLines('.tx', mode === 'compact' ? 4 : 6);
+  renderMarkers();
+  document.querySelectorAll('[data-opt]').forEach(b => { b.checked = opts[b.dataset.opt]; });
+  const n = optCount();
+  document.getElementById('rowsCount').hidden = !n;
+  document.getElementById('rowsCount').textContent = n;
+  try { localStorage.setItem('perio-rows', String(optCode())); } catch (e) {}
+  build();
+  setPaper(document.getElementById('paper').value);
+  fitSheet();
+}
+
+function toggleRowsMenu(open) {
+  const menu = document.getElementById('rowsMenu'), show = open ?? menu.hidden;
+  menu.hidden = !show;
+  document.getElementById('rowsBtn').setAttribute('aria-expanded', String(show));
+}
+document.addEventListener('change', e => {
+  const b = e.target.closest('[data-opt]');
+  if (!b) return;
+  const next = { [b.dataset.opt]: b.checked };
+  if (b.dataset.opt === 'gm' && !b.checked) next.cal = false;   // no CAL without CEJ–GM
+  applyOpts(next);
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('.menuwrap')) toggleRowsMenu(false);
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') toggleRowsMenu(false); });
+
 setDefaults();
-build();
-setPaper(document.getElementById('paper').value);
-fitSheet();
+// Rows: ?rows=<code> (used by the build tools) or what this device chose last time; classic by default.
+let startCode = +(new URLSearchParams(location.search).get('rows') ?? NaN);
+if (isNaN(startCode)) { try { startCode = +(localStorage.getItem('perio-rows') || 0); } catch (e) { startCode = 0; } }
+applyOpts(codeOpts(startCode || 0));
 
 // App-bar segmented controls drive the (hidden) selects the rest of the page reads.
 document.querySelectorAll('.appbar .seg').forEach(seg => {
@@ -1038,7 +1264,18 @@ const Scanner = (() => {
   const MAX_SIDE = 2600;         // photos are scaled down to this before detection
   const LOW_CONFIDENCE = 0.95;   // on synthetic handwriting this flags ~1 cell in 9 and catches ~2/3 of misreads
   const OPENCV = 'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js';
-  const ASSETS = ['scan/layout.js', 'scan/template.js', 'scan/digits.js', 'scan/letters.js', 'scan/reader-ondevice.js'];
+  const ASSETS = ['scan/digits.js', 'scan/letters.js', 'scan/reader-ondevice.js'];
+  // Marker ids: corners 0, 2, 3, 5; middles 1 / 4 on the classic sheet, else 10 + code (top) and 30 + code (bottom).
+  const CORNERS = [0, 2, 3, 5];
+  const codeFromId = id => id === 1 || id === 4 ? 0 : id > 10 && id < 26 ? id - 10 : id > 30 && id < 46 ? id - 30 : null;
+  let TPL = null, scanCode = 0, codeSeen = true;
+  function loadLayout(code) {
+    const have = () => window.SCAN_LAYOUTS?.[code];
+    return (have() ? Promise.resolve() : loadScript(`scan/layouts/${code}.js`)).then(() => {
+      if (!have()) throw new Error('No scan layout for this combination of rows.');
+      return have();
+    });
+  }
   const TEST = new URLSearchParams(location.search).get('test');
   let cv = null, L = null, flat = null, deps = null;
   let photo = null, toFlat = null;   // the aligned photo and its homography, kept for sharper crops
@@ -1072,7 +1309,6 @@ const Scanner = (() => {
     if (!deps) {
       deps = (async () => {
         await Promise.all(ASSETS.map(loadScript));
-        L = window.LAYOUT;
         await loadScript(OPENCV);
         let c = window.cv;
         if (c instanceof Promise) c = await c;
@@ -1143,7 +1379,7 @@ const Scanner = (() => {
         i.src = src;
       });
       await frame();
-      const r = align(img);
+      const r = await align(img);
       if (!r.ok) return fail(r.text, r.tip);
       $('workText').textContent = 'Reading the handwriting…';
       await frame();
@@ -1157,16 +1393,16 @@ const Scanner = (() => {
 
   /* ---------- align ---------- */
   function detectMarkers(gray) {
-    const dict = cv.getPredefinedDictionary(cv.DICT_4X4_50);
+    const dict = cv.getPredefinedDictionary(cv.DICT_4X4_100);   // its first 50 are DICT_4X4_50, used by older sheets
     const params = new cv.aruco_DetectorParameters();
     const refine = new cv.aruco_RefineParameters(10, 3, true);
     const det = new cv.aruco_ArucoDetector(dict, params, refine);
     const corners = new cv.MatVector(), ids = new cv.Mat(), rejected = new cv.MatVector();
     det.detectMarkers(gray, corners, ids, rejected);
-    const wanted = new Set(L.markers.map(m => m.id)), out = [];
+    const out = [];
     for (let k = 0; k < ids.rows; k++) {
       const id = ids.data32S[k];
-      if (!wanted.has(id) || out.some(o => o.id === id)) continue;
+      if ((!CORNERS.includes(id) && codeFromId(id) === null) || out.some(o => o.id === id)) continue;
       const d = corners.get(k).data32F;
       out.push({ id, pts: [[d[0], d[1]], [d[2], d[3]], [d[4], d[5]], [d[6], d[7]]] });
     }
@@ -1174,7 +1410,7 @@ const Scanner = (() => {
     return out;
   }
 
-  function align(img) {
+  async function align(img) {
     const k = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
     const c = document.createElement('canvas');
     c.width = Math.round(img.naturalWidth * k);
@@ -1183,8 +1419,17 @@ const Scanner = (() => {
 
     const src = cv.imread(c), gray = new cv.Mat();
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-    const found = detectMarkers(gray);
+    let found = detectMarkers(gray);
     gray.delete();
+    // Which rows this sheet has, from its middle markers; without one, assume the chart's current rows.
+    const codes = found.map(f => codeFromId(f.id)).filter(c => c !== null);
+    codeSeen = codes.length > 0;
+    scanCode = codeSeen ? codes[0] : optCode();
+    let entry;
+    try { entry = await loadLayout(scanCode); } catch (e) { src.delete(); throw e; }
+    L = entry.layout;
+    TPL = entry.template;
+    found = found.filter(f => L.markers.some(m => m.id === f.id));
     const n = found.length, total = L.markers.length;
     if (n < 3) {
       src.delete();
@@ -1219,11 +1464,19 @@ const Scanner = (() => {
     photo = src;
     toFlat = H;
 
-    // Only speak up about alignment when it matters.
-    $('alignNote').hidden = n === total && err < 0.5;
-    $('markerChip').textContent = n === total ? '' : `Found ${n} of ${total} markers.`;
-    $('errChip').textContent = err < 0.5 ? 'Check that each row lines up with its handwriting.'
-      : `The photo lines up less precisely than usual (${err.toFixed(1)} mm). Check that each row lines up with its handwriting.`;
+    // Only speak up when it matters: alignment, and rows that differ from the chart's.
+    const notes = [];
+    if (n < total) notes.push(`Found ${n} of ${total} markers.`);
+    if (err >= 0.5) notes.push(`The photo lines up less precisely than usual (${err.toFixed(1)} mm).`);
+    if (notes.length) notes.push('Check that each row lines up with its handwriting.');
+    if (!codeSeen) notes.push('The middle markers weren’t visible, so the sheet is read with the chart’s current rows.');
+    else if (scanCode !== optCode()) {
+      const on = Object.entries(codeOpts(scanCode)).filter(([, v]) => v).map(([k]) => OPT_LABEL[k]);
+      notes.push(on.length ? `This sheet has ${on.join(', ')} rows; applying switches the chart to match.` : 'This sheet has no extra rows; applying switches the chart to match.');
+    }
+    $('alignNote').hidden = !notes.length;
+    $('markerChip').textContent = notes.join(' ');
+    $('errChip').textContent = '';
     cv.imshow($('flatView'), flat);
     if (TEST) document.title = 'SCAN ' + JSON.stringify({ markers: n, errorMm: +err.toFixed(3) });
     return { ok: true };
@@ -1367,7 +1620,7 @@ const Scanner = (() => {
     for (const jaw of ['upper', 'lower']) {
       const host = $('jaw-' + jaw);
       host.innerHTML = '';
-      for (const row of L.rows.filter(r => r.jaw === jaw)) {
+      for (const row of L.rows.filter(r => r.jaw === jaw && r.kind !== 'cal')) {   // CAL is calculated after applying
         const strip = document.createElement('div');
         strip.className = 'strip';
         strip.appendChild(cropCanvas(0, row.y, L.sheet.w, row.h));
@@ -1398,8 +1651,9 @@ const Scanner = (() => {
           inp.dataset.k = f.kind;
           inp.dataset.tooth = f.tooth;
           inp.autocomplete = 'off';
-          inp.inputMode = f.kind === 'pd' ? 'numeric' : 'text';
-          inp.maxLength = f.kind === 'furc' ? 3 : 2;
+          inp.inputMode = f.kind === 'pd' ? 'numeric' : f.kind === 'bop' || f.kind === 'pi' ? 'none' : 'text';
+          inp.maxLength = f.kind === 'furc' || f.kind === 'gm' ? 3 : 2;
+          if (f.kind === 'bop' || f.kind === 'pi') inp.readOnly = true;   // tap to set, like on the chart
           inp.setAttribute('aria-label', `${f.kind} ${f.tooth}`);
           inp.style.left = `calc(${pct(f.x)} + 1px)`;
           inp.style.width = `calc(${pct(f.w)} - 2px)`;
@@ -1445,7 +1699,7 @@ const Scanner = (() => {
     });
     let res;
     try {
-      res = await r.run({ cv, flat, px: PX, layout: L, cellImages, warpArea });
+      res = await r.run({ cv, flat, px: PX, layout: L, cellImages, warpArea, template: TPL });
     } catch (e) {
       $('readStatus').textContent = 'The reader failed: ' + (e.message || e);
       return;
@@ -1490,6 +1744,7 @@ const Scanner = (() => {
     });
     missing.clear();
     scanMissing.forEach(t => missing.add(t));
+    if (scanCode !== optCode()) applyOpts(codeOpts(scanCode));   // rebuilds the chart with the sheet's rows
     build();
     restoreVals(values);
     document.querySelectorAll('table.chart input').forEach(styleInput);   // already checked in the dialog: no second outline
@@ -1569,6 +1824,8 @@ const Scanner = (() => {
     if (k === 'mob') i.value = v.replace(/\D/g, '').slice(0, 1);
     if (k === 'furc') i.value = v.toUpperCase().replace(/[^I1-3]/g, '');
     if (k === 'prog') i.value = v.toUpperCase().replace(/[^GFPQH]/g, '').slice(0, 1);
+    if (k === 'gm') i.value = v.replace(/[–−]/g, '-').replace(/[^\d-]/g, '').replace(/(?!^)-/g, '').slice(0, 3);
+    if (k === 'bop') { i.classList.toggle('pos', i.value === '+'); i.classList.toggle('neg', i.value === '−'); }
     i.classList.remove('low', 'read');
     flagValue(i);
     updateCount();
@@ -1581,7 +1838,10 @@ const Scanner = (() => {
     all[all.indexOf(e.target) + (e.shiftKey ? -1 : 1)]?.focus();
   });
 
-  if (TEST) { open(); handle(TEST); }
+  if (TEST) {   // ?test=<image>: scan it straight away (tests); exposes the layout and crops for debugging
+    window.__scanDebug = { layout: () => L, crop: (x, y, w, h) => cropCanvas(x, y, w, h).toDataURL() };
+    open(); handle(TEST);
+  }
   return { open };
 })();
 </script>

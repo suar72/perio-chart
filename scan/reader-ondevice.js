@@ -9,6 +9,8 @@
 // 6. Prognosis letters (G F P Q H) use a second CNN trained on EMNIST (letters.js); HN, Age and Date
 //    reuse the digit CNN, with date slashes recognised by shape; checkboxes count ink inside the box.
 // 7. Patient, Examiner, Diagnosis and Treatment plan are not read: their ink is cut out as images.
+// 8. Optional rows: CEJ–GM is read like PD (a short dash in front means minus); BOP is + or −
+//    (a vertical stroke makes it +); plaque is ✓ when there is a mark in the box; CAL is calculated, not read.
 (function () {
   const MM = {
     inkThreshold: 32,      // adaptive threshold offset (higher = only darker strokes count)
@@ -101,14 +103,15 @@
   }
 
   /* ---------- image helpers ---------- */
-  let template = null;
-  function loadTemplate() {
-    if (template) return Promise.resolve(template);
+  // The blank-sheet image of the layout being read (one per row combination), cached by source.
+  let template = null, templatePx = 8, templateSrc = '';
+  function loadTemplate(t) {
+    if (template && templateSrc === t.src) return Promise.resolve(template);
     return new Promise((res, rej) => {
       const img = new Image();
-      img.onload = () => { template = img; res(img); };
-      img.onerror = () => rej(new Error('template.js did not load'));
-      img.src = window.TEMPLATE.src;
+      img.onload = () => { template = img; templateSrc = t.src; templatePx = t.px; res(img); };
+      img.onerror = () => rej(new Error('the blank sheet image did not load'));
+      img.src = t.src;
     });
   }
 
@@ -211,9 +214,13 @@
   }
 
   /* ---------- reading ---------- */
-  function interpret(kind, chars) {
+  function interpret(kind, chars, negative = false) {
     if (!chars.length) return null;
     const p = chars.reduce((a, c) => a * c.p, 1), s = chars.map(c => c.digit).join('');
+    if (kind === 'gm') {
+      const v = (negative ? -1 : 1) * +s;
+      return chars.length <= 2 && v >= -5 && v <= 15 ? { value: String(v), confidence: p } : { value: (negative ? '-' : '') + s.slice(0, 2), confidence: 0 };
+    }
     if (kind === 'pd') {
       const v = +s;
       return chars.length <= 2 && v <= 15 ? { value: String(v), confidence: p } : { value: s.slice(0, 2), confidence: 0 };
@@ -250,8 +257,8 @@
     return out;
   }
 
-  async function run({ cv, flat, px, layout, warpArea }) {
-    const tmpl = await loadTemplate();
+  async function run({ cv, flat, px, layout, warpArea, template: tpl }) {
+    const tmpl = await loadTemplate(tpl);
     const { ink, printed } = inkMask(cv, flat, tmpl, px);
     const missing = struckTeeth(cv, ink, printed, layout.columns, px);
     const skip = new Set(missing);
@@ -259,8 +266,10 @@
     const minArea = MM.minArea * px * px, minH = MM.minHeight * px;
 
     for (const row of layout.rows) {
+      if (row.kind === 'cal' || row.kind === 'bop' || row.kind === 'pi') continue;   // calculated, or read as marks below
       const fields = layout.fields.filter(f => f.jaw === row.jaw && f.r === row.r && !skip.has(f.tooth));
       if (!fields.length) continue;
+      const minus = new Set();   // CEJ–GM cells with a short dash in front (GM coronal to the CEJ)
       const pad = MM.bandPad * px;
       const x0 = Math.round(Math.min(...fields.map(f => f.x)) * px), x1 = Math.round(Math.max(...fields.map(f => f.x + f.w)) * px);
       const y0 = Math.max(0, Math.round(row.y * px - pad)), y1 = Math.min(ink.rows, Math.round((row.y + row.h) * px + pad));
@@ -274,8 +283,13 @@
       for (let k = 1; k < n; k++) {
         const s = i => stats.data32S[k * 5 + i];
         const [bx, by, bw, bh, area] = [s(0), s(1), s(2), s(3), s(4)];
-        if (area < minArea || bh < minH || bh > (y1 - y0) * 1.05) continue;
         const cx = (x0 + cents.doubleAt(k, 0)) / px, cy = (y0 + cents.doubleAt(k, 1)) / px;
+        if (row.kind === 'gm' && bh < minH && bw >= 0.8 * px && bw > 2 * bh && area >= 0.15 * px * px && cy >= row.y && cy <= row.y + row.h) {
+          const f = fields.find(f => cx >= f.x && cx < f.x + f.w);
+          if (f) minus.add(f.i);
+          continue;
+        }
+        if (area < minArea || bh < minH || bh > (y1 - y0) * 1.05) continue;
         if (cy < row.y || cy > row.y + row.h) continue;   // belongs to the row above or below
         const f = fields.find(f => cx >= f.x && cx < f.x + f.w);
         if (!f) continue;
@@ -297,10 +311,29 @@
           } else groups.push({ ...b, ks: [b.k] });
         }
         const lab = labels.data32S, lw = labels.cols;
-        const chars = groups.map(g => {
-          const m = cv.Mat.zeros(g.h, g.w, cv.CV_8U);
+        const chars = groups.map((g, gi) => {
+          let m = cv.Mat.zeros(g.h, g.w, cv.CV_8U);
           for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
             if (g.ks.includes(lab[(g.y + y) * lw + g.x + x])) m.data[y * g.w + x] = 255;
+          }
+          // CEJ–GM: a minus written close to the digit joins it. If the first character starts with a
+          // thin horizontal run, that run is the minus: note it and read the rest as the digit.
+          if (row.kind === 'gm' && gi === 0 && g.w > 0.6 * g.h) {
+            let run = 0, ySum = 0, yN = 0;
+            for (let x = 0; x < g.w * 0.6; x++) {
+              let top = -1, bottom = -1;
+              for (let y = 0; y < g.h; y++) if (m.data[y * g.w + x]) { if (top < 0) top = y; bottom = y; }
+              if (top < 0 ? run === 0 : bottom - top + 1 <= Math.max(3, 0.28 * g.h)) { run++; if (top >= 0) { ySum += (top + bottom) / 2; yN++; } }
+              else break;
+            }
+            // A minus sits at mid-height; the left arms of 2, 3, 5 and 7 are at the top or bottom.
+            const mid = yN ? ySum / yN / g.h : 0;
+            if (run >= Math.max(0.6 * px, 0.25 * g.h) && run < g.w - 0.3 * g.h && mid > 0.3 && mid < 0.7) {
+              minus.add(i);
+              const rest = m.roi(new cv.Rect(run, 0, g.w - run, g.h)).clone();
+              m.delete();
+              m = rest;
+            }
           }
           const model = layout.fields[i].kind === 'prog' ? window.LETTER_MODEL : window.DIGIT_MODEL;
           const x28 = to28(cv, m), c = model ? classifyTTA(cv, m, model) : { digit: -1, label: '', p: 0 };
@@ -308,14 +341,47 @@
           m.delete();
           return c;
         });
-        const kind = layout.fields[i].kind, r = interpret(kind, chars);
+        const kind = layout.fields[i].kind, r = interpret(kind, chars, minus.has(i));
         if (r) values[i] = r;
       }
       [band, labels, stats, cents].forEach(m => m.delete());
     }
+    readMarks(cv, ink, layout, px, skip, values);
     const extras = readExtras(cv, flat, ink, layout, px, warpArea);
     ink.delete(); printed.delete();
     return { values, missing, ...extras };
+  }
+
+  /* ---------- BOP (+ / −) and plaque (✓) ---------- */
+  function readMarks(cv, ink, layout, px, skip, values) {
+    const inset = 0.4 * px;
+    for (const f of layout.fields) {
+      if ((f.kind !== 'bop' && f.kind !== 'pi') || skip.has(f.tooth)) continue;
+      const r = new cv.Rect(Math.round(f.x * px + inset), Math.round(f.y * px + inset),
+        Math.max(1, Math.round(f.w * px - 2 * inset)), Math.max(1, Math.round(f.h * px - 2 * inset)));
+      const roi = ink.roi(r), W = r.width, H = r.height;
+      let n = 0, minX = W, maxX = -1, minY = H, maxY = -1, midCol = 0;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        if (!roi.ucharPtr(y, x)[0]) continue;
+        n++;
+        if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+      }
+      if (n) {   // ink rows crossed by the centre column of the mark: a + has a vertical stroke there
+        const cx = Math.round((minX + maxX) / 2);
+        for (let y = minY; y <= maxY; y++) for (let x = Math.max(0, cx - 2); x <= Math.min(W - 1, cx + 2); x++) {
+          if (roi.ucharPtr(y, x)[0]) { midCol++; break; }
+        }
+      }
+      roi.delete();
+      const frac = n / (W * H);
+      if (frac < 0.03) continue;                                   // empty box
+      const sure = frac > 0.06;
+      if (f.kind === 'pi') { values[f.i] = { value: '✓', confidence: sure ? 0.97 : 0.6 }; continue; }
+      const tall = maxY - minY + 1, wide = maxX - minX + 1;
+      const plus = tall >= 0.45 * H && midCol >= 0.6 * tall;
+      const dash = tall < 0.35 * H && wide >= 0.3 * W;
+      values[f.i] = { value: plus ? '+' : '−', confidence: sure && (plus || dash) ? 0.95 : 0.55 };
+    }
   }
 
   /* ---------- header, checkboxes, handwriting images ---------- */
@@ -471,7 +537,7 @@
 
     const c = document.createElement('canvas');
     c.width = W; c.height = H;
-    const tp = window.TEMPLATE.px;
+    const tp = templatePx;
     c.getContext('2d').drawImage(template, area.x * tp, area.y * tp, area.w * tp, area.h * tp, 0, 0, W, H);
     const t = cv.imread(c), tg = new cv.Mat();
     cv.cvtColor(t, tg, cv.COLOR_RGBA2GRAY);
