@@ -870,8 +870,11 @@ function buildTable(id, teeth, rows) {
   });
 }
 
+// Every chart value by key, including rows that are switched off: switching a row back on brings its data back.
+const stash = {};
 function build() {
-  const keep = Object.fromEntries([...document.querySelectorAll('table.chart input')].map(i => [i.dataset.key, i.value]));
+  for (const i of document.querySelectorAll('table.chart input')) if (i.dataset.k !== 'cal') stash[i.dataset.key] = i.value;
+  const keep = stash;
   buildTable('upper', UPPER, upperRows());
   buildTable('lower', LOWER, lowerRows());
   document.querySelectorAll('table.chart input').forEach(i => { if (keep[i.dataset.key] != null) i.value = keep[i.dataset.key]; });
@@ -1056,6 +1059,7 @@ document.addEventListener('input', e => {
 function clearAll() {
   if (!confirm('Clear every field on the chart?')) return;
   document.getElementById('inkLayer').innerHTML = '';
+  for (const k in stash) delete stash[k];
   missing.clear();
   document.querySelectorAll('.sheet input').forEach(i => {
     if (i.type === 'checkbox') i.checked = false; else i.value = '';
