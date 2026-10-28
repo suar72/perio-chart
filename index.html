@@ -116,8 +116,10 @@
   .page-hint { max-width: 1240px; margin: 14px auto 0; padding: 0 16px; text-align: center; font: 12.5px/1.4 var(--ui-font); color: var(--ui-sub); }
 
   /* ---------- sheet ---------- */
-  .sheet { --sheet-w: 287mm; width: var(--sheet-w); margin: 12px auto; padding: 0; background: #fff; }
-  .sheet.portrait { --sheet-w: 200mm; }
+  .sheet { --sheet-w: 287mm; --page-h: 200mm; width: var(--sheet-w); margin: 12px auto; padding: 0; background: #fff; }
+  .sheet.portrait { --sheet-w: 200mm; --page-h: 287mm; }
+  /* Preview and PDF show the whole A4 page (inside 5 mm margins); stretchSheet() fills it with the chart. */
+  @media screen { .sheet { min-height: calc(var(--page-h) + 12mm); } }
   @media screen { .sheet { padding: 6mm; width: calc(var(--sheet-w) + 12mm); margin: 14px auto; border-radius: 6px; box-shadow: var(--ui-shadow);
     zoom: var(--screen-zoom, 1); } }   /* whole sheet fits the window (fitSheet), whatever paper is chosen */
   /* Printing: paper is chosen in the print dialog; orientation follows the layout (setPrintPage). The sheet is
@@ -144,7 +146,7 @@
   .sheet.no-markers .marker { visibility: hidden; }
   .sheet.no-markers .scanbar { display: none; }
   /* PDF export renders the sheet exactly as printed. */
-  body.exporting .sheet { padding: 0; width: var(--sheet-w); margin: 0; box-shadow: none; }
+  body.exporting .sheet { padding: 0; width: var(--sheet-w); min-height: var(--page-h); margin: 0; box-shadow: none; }
   body.exporting .boxes input.numwarn, body.exporting .boxes input.badval { box-shadow: none; color: inherit; }
 
   header.top { display: flex; align-items: center; gap: 2mm 3mm; margin-bottom: 1.6mm; }
@@ -951,6 +953,35 @@ function build() {
   document.querySelectorAll('table.chart input').forEach(i => { if (keep[i.dataset.key] != null) i.value = keep[i.dataset.key]; });
   document.querySelectorAll('table.chart input').forEach(styleInput);
   summarize();
+  stretchSheet();
+}
+
+// Fill the page: with rows or the Diagnosis & plan section switched off there is spare height, and the
+// chart rows and tooth drawings grow (in proportion) to use it, so every sheet fills its A4 page.
+// A sheet within 4 mm of full is left as it is (the classic sheet), so its printed layout never changes.
+// Measured at true size with the scan bar shown, so zoom and the Scan markers switch don't change it.
+const PAGE_FILL = { landscape: 198, portrait: 284 };   // mm of A4 content inside 5 mm margins, a little spare
+function stretchSheet() {
+  const sheet = document.querySelector('.sheet');
+  sheet.querySelectorAll('table.chart td, table.chart .pic').forEach(el => { el.style.height = ''; });
+  const zoom = sheet.style.zoom, noMarks = sheet.classList.contains('no-markers');
+  sheet.style.zoom = 1;
+  sheet.classList.remove('no-markers');
+  const mm = px => px * 25.4 / 96;
+  const target = PAGE_FILL[sheetMode() === 'portrait' ? 'portrait' : 'landscape'];
+  const spare = () => target - mm(sheet.querySelector('.scanbar').getBoundingClientRect().bottom - sheet.querySelector('header.top').getBoundingClientRect().top);
+  const rows = [...sheet.querySelectorAll('table.chart tr')].filter(tr => !tr.classList.contains('teeth'));   // tooth numbers stay as they are
+  // Rows don't grow exactly as asked (borders, cell content), so correct over a few passes.
+  for (let pass = 0, free = spare(); pass < 4 && free >= (pass ? .5 : 4); pass++, free = spare()) {
+    const h = rows.map(tr => mm(tr.getBoundingClientRect().height));
+    const k = 1 + free / h.reduce((a, b) => a + b, 0);
+    rows.forEach((tr, i) => {
+      const height = (h[i] * k).toFixed(2) + 'mm';   // cells are border-box, so this is the row height
+      tr.querySelectorAll('td, .pic').forEach(el => { el.style.height = height; });
+    });
+  }
+  if (noMarks) sheet.classList.add('no-markers');
+  sheet.style.zoom = zoom;
 }
 
 // Each count stays blank until there is something to count, so a chart with
