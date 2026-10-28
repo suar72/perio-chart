@@ -261,6 +261,13 @@
   .sheet.portrait tr.img td, .sheet.portrait tr.img .pic { height: 8.6mm; }   /* keeps the portrait sheet ≤ 265 mm: fits Letter too */
 
   footer.bottom { display: grid; grid-template-columns: 1fr 1.35fr; gap: 4mm; margin-top: 1.8mm; }
+  .sheet.nofoot footer.bottom { display: none; }
+  /* Diagnosis & plan hidden, no extra rows: the freed ~37 mm goes to taller chart rows and drawings. */
+  .sheet.roomy table.chart td { height: 6.3mm; }
+  .sheet.roomy tr.pd td { height: 9mm; }
+  .sheet.roomy tr.teeth td { height: 6.6mm; }
+  .sheet.roomy tr.img td, .sheet.roomy tr.img .pic { height: 16.8mm; }
+  .sheet.roomy .boxes input { font-size: 15px; }
   .box { border: 1px solid var(--line); padding: 1.4mm 2.2mm 1.6mm; }
   .box h3 { margin: 0; font-size: 9.5px; text-transform: uppercase; letter-spacing: .4px; }
   .box h3.next { margin-top: 1.2mm; }
@@ -432,7 +439,9 @@
           <label class="switch row"><span>BOP <small>+ / −</small></span><input type="checkbox" data-opt="bop"><span class="track"></span></label>
           <label class="switch row"><span>Plaque <small>✓</small></span><input type="checkbox" data-opt="pi"><span class="track"></span></label>
           <label class="switch row"><span>Prognosis <small>per tooth, G F P Q H</small></span><input type="checkbox" data-opt="prog" checked><span class="track"></span></label>
-          <p class="pop-note" id="rowsNote">Up to two extra rows fit the usual page; three or more turn it portrait.</p>
+          <p class="pop-title">Sheet</p>
+          <label class="switch row"><span>Diagnosis &amp; plan <small>diagnosis, prognosis, contributing factors, treatment</small></span><input type="checkbox" data-opt="foot" checked><span class="track"></span></label>
+          <p class="pop-note" id="rowsNote">Up to two extra rows fit the usual page (three with Diagnosis &amp; plan hidden); more turn it portrait. Hiding Diagnosis &amp; plan gives the chart taller boxes.</p>
         </div>
       </div>
       <label class="switch" title="The six black squares and scan instructions. Needed only on sheets you will scan.">
@@ -486,7 +495,7 @@
   <footer class="bottom">
     <div class="box">
       <h3>Diagnosis</h3>
-      <div class="dx"><input class="wline"><input class="wline"><input class="wline"></div>
+      <div class="dx" data-area="diagnosis"><input class="wline"><input class="wline"><input class="wline"></div>
       <h3 class="next">Overall prognosis</h3>
       <div class="opts">
         <label class="ck"><input type="checkbox">Good</label>
@@ -503,8 +512,10 @@
       </div>
     </div>
     <div class="box">
-      <h3>Treatment plan</h3>
-      <div class="tx"><input class="wline"><input class="wline"><input class="wline"><input class="wline"><input class="wline"><input class="wline"></div>
+      <h3>Contributing factors</h3>
+      <div class="cf" data-area="contributing_factors"><input class="wline"><input class="wline"></div>
+      <h3 class="next">Treatment plan</h3>
+      <div class="tx" data-area="treatment_plan"><input class="wline"><input class="wline"><input class="wline"></div>
     </div>
   </footer>
   <div class="scanbar">
@@ -614,14 +625,23 @@ function universal(t) {
    CEJ–GM (recession +, mm), CAL (PD + CEJ–GM, calculated), BOP (+/−) and plaque (✓), off by default.
    The combination is a 4-bit code (gm 1, cal 2, bop 4, plaque 8; CAL needs CEJ–GM) printed into the
    two middle scan markers, so the scanner knows which rows a sheet has. Code 0 is the classic sheet.
-   Per-tooth prognosis is on by default; switching it off adds 16 to the code (so older sheets keep codes 0-15). */
-const opts = { gm: false, cal: false, bop: false, pi: false, prog: true };
+   Per-tooth prognosis is on by default; switching it off adds 16 to the code (so older sheets keep codes 0-15).
+   The Diagnosis & plan section (footer) is on by default; hiding it adds 32, which the bottom corner markers
+   carry (7 and 9 instead of 3 and 5) while the middle markers keep carrying code & 31. */
+const opts = { gm: false, cal: false, bop: false, pi: false, prog: true, foot: true };
 const EXTRAS = ['gm', 'cal', 'bop', 'pi'];
-const optCode = () => (opts.gm ? 1 : 0) | (opts.cal ? 2 : 0) | (opts.bop ? 4 : 0) | (opts.pi ? 8 : 0) | (opts.prog ? 0 : 16);
+const optCode = () => (opts.gm ? 1 : 0) | (opts.cal ? 2 : 0) | (opts.bop ? 4 : 0) | (opts.pi ? 8 : 0) | (opts.prog ? 0 : 16) | (opts.foot ? 0 : 32);
 const optCount = () => EXTRAS.filter(k => opts[k]).length;   // extra rows; they decide the page layout
-const sheetMode = () => !optCount() ? 'classic' : optCount() <= 2 ? 'compact' : 'portrait';
-const codeOpts = c => ({ gm: !!(c & 1), cal: !!(c & 2), bop: !!(c & 4), pi: !!(c & 8), prog: !(c & 16) });
-const OPT_LABEL = { gm: 'CEJ–GM', cal: 'CAL', bop: 'BOP', pi: 'Plaque', prog: 'Prognosis' };
+// Layout: portrait for 3+ extra rows (4 when Diagnosis & plan is hidden); compact landscape for 1-2 (3 without it);
+// without Diagnosis & plan, 1-2 extra rows keep the classic row sizes.
+function sheetMode() {
+  const n = optCount();
+  if (n >= (opts.foot ? 3 : 4)) return 'portrait';
+  if (!n || (!opts.foot && n <= 2)) return 'classic';
+  return 'compact';
+}
+const codeOpts = c => ({ gm: !!(c & 1), cal: !!(c & 2), bop: !!(c & 4), pi: !!(c & 8), prog: !(c & 16), foot: !(c & 32) });
+const OPT_LABEL = { gm: 'CEJ–GM', cal: 'CAL', bop: 'BOP', pi: 'Plaque', prog: 'Prognosis', foot: 'Diagnosis & plan' };
 // First and last rows of each jaw carry the thicker outer border.
 const edged = rows => rows.map((r, i) => { const x = [...r]; x[3] = i === 0 ? 'edge-top' : i === rows.length - 1 ? 'edge-bot' : ''; return x; });
 
@@ -1065,8 +1085,9 @@ const headerInput = name => [...document.querySelectorAll('.sheet header .field'
 const HANDWRITING_FIELDS = {
   Patient: () => [headerInput('Patient')],
   Examiner: () => [headerInput('Examiner')],
-  diagnosis: () => [...document.querySelectorAll('.sheet .box')[0].querySelectorAll('.wline')],
-  treatment_plan: () => [...document.querySelectorAll('.sheet .box')[1].querySelectorAll('.wline')],
+  diagnosis: () => [...document.querySelectorAll('.sheet .dx .wline')],
+  contributing_factors: () => [...document.querySelectorAll('.sheet .cf .wline')],
+  treatment_plan: () => [...document.querySelectorAll('.sheet .tx .wline')],
 };
 // Put text into one or more single-line inputs (e.g. the 3 diagnosis lines): typed line breaks are
 // kept, long lines wrap at word boundaries by measured width, and anything left over joins the last line.
@@ -1259,7 +1280,7 @@ function markerPath(id) {
   return d;
 }
 function renderMarkers() {
-  const [tm, bm] = midMarkers(optCode()), ids = { tl: 0, tr: 2, bl: 3, br: 5, tm, bm };
+  const [tm, bm] = midMarkers(optCode() & 31), ids = { tl: 0, tr: 2, bl: opts.foot ? 3 : 7, br: opts.foot ? 5 : 9, tm, bm };
   document.querySelectorAll('.sheet .marker').forEach(m => {
     const id = ids[m.dataset.slot];
     m.dataset.id = id;
@@ -1282,8 +1303,12 @@ function applyOpts(next) {
   sheet.classList.toggle('portrait', mode === 'portrait');
   sheet.classList.toggle('has-bop', opts.bop);
   sheet.classList.toggle('has-pi', opts.pi);
+  sheet.classList.toggle('nofoot', !opts.foot);
+  sheet.classList.toggle('roomy', !opts.foot && !optCount());
   setLines('.dx', mode === 'compact' ? 2 : 3);
-  setLines('.tx', mode === 'classic' ? 6 : mode === 'compact' ? 4 : 5);
+  // Contributing factors + treatment plan share the right box: same height as before (the heading costs one line).
+  setLines('.cf', mode === 'compact' ? 1 : 2);
+  setLines('.tx', mode === 'classic' ? 3 : 2);
   renderMarkers();
   document.querySelectorAll('[data-opt]').forEach(b => { b.checked = opts[b.dataset.opt]; });
   const n = optCount();
@@ -1369,7 +1394,7 @@ function collectDraft() {
     values: Object.fromEntries(Object.entries(stash).filter(([, v]) => v)),
     header: Object.fromEntries([...document.querySelectorAll('.sheet header .field')].map(f => [f.querySelector('label').textContent, f.querySelector('input').value])),
     checks: Object.fromEntries([...document.querySelectorAll('.sheet label.ck input')].map(i => [i.parentElement.textContent.trim(), i.checked])),
-    lines: { dx: [...document.querySelectorAll('.dx .wline')].map(i => i.value), tx: [...document.querySelectorAll('.tx .wline')].map(i => i.value) },
+    lines: Object.fromEntries(['dx', 'cf', 'tx'].map(k => [k, [...document.querySelectorAll(`.${k} .wline`)].map(i => i.value)])),
     ink: [...document.querySelectorAll('#inkLayer img')].map(el => ({ key: el.dataset.key, src: el.src,
       x: parseFloat(el.style.left), y: parseFloat(el.style.top), w: parseFloat(el.style.width), h: parseFloat(el.style.height) })),
   };
@@ -1377,7 +1402,7 @@ function collectDraft() {
 // Anything worth restoring (today's date alone isn't).
 const draftHasData = d => Object.keys(d.values).length || d.missing.length || d.ink.length ||
   Object.entries(d.header).some(([k, v]) => v && k !== 'Date') || Object.values(d.checks).some(Boolean) ||
-  [...d.lines.dx, ...d.lines.tx].some(Boolean);
+  Object.values(d.lines).flat().some(Boolean);
 
 function saveDraftNow() {
   if (draftOff || restoring) return;
@@ -1413,8 +1438,7 @@ function restoreDraft() {
     if (v != null) f.querySelector('input').value = v;
   });
   document.querySelectorAll('.sheet label.ck input').forEach(i => { i.checked = !!d.checks[i.parentElement.textContent.trim()]; });
-  putLines([...document.querySelectorAll('.dx .wline')], d.lines.dx);
-  putLines([...document.querySelectorAll('.tx .wline')], d.lines.tx);
+  for (const k of ['dx', 'cf', 'tx']) if (d.lines[k]) putLines([...document.querySelectorAll(`.${k} .wline`)], d.lines[k]);
   d.ink.forEach(img => setHandwriting(img.key, img));
   setMarkers(d.markers !== false);
   summarize();
@@ -1452,7 +1476,7 @@ const Scanner = (() => {
   const OPENCV = 'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js';
   const ASSETS = ['scan/digits.js', 'scan/letters.js', 'scan/reader-ondevice.js'];
   // Marker ids: corners 0, 2, 3, 5; middles 1 / 4 on the classic sheet, else 10 + code (top) and 30 + code (bottom).
-  const CORNERS = [0, 2, 3, 5];
+  const CORNERS = [0, 2, 3, 5, 7, 9];   // bottom corners 7 / 9: the sheet has no Diagnosis & plan section (+32)
   const codeFromId = id => id === 1 || id === 4 ? 0 : id > 10 && id < 26 ? id - 10 : id > 30 && id < 46 ? id - 30
     : id >= 50 && id < 66 ? id - 50 + 16 : id >= 70 && id < 86 ? id - 70 + 16 : null;   // mirrors midMarkers()
   let TPL = null, scanCode = 0, codeSeen = true;
@@ -1611,7 +1635,9 @@ const Scanner = (() => {
     // Which rows this sheet has, from its middle markers; without one, assume the chart's current rows.
     const codes = found.map(f => codeFromId(f.id)).filter(c => c !== null);
     codeSeen = codes.length > 0;
-    scanCode = codeSeen ? codes[0] : optCode();
+    const ids = new Set(found.map(f => f.id));
+    const foot = ids.has(7) || ids.has(9) ? 32 : ids.has(3) || ids.has(5) ? 0 : optCode() & 32;   // bottom corners
+    scanCode = codeSeen ? codes[0] + foot : optCode();
     let entry;
     try { entry = await loadLayout(scanCode); } catch (e) { src.delete(); throw e; }
     L = entry.layout;
@@ -1659,7 +1685,7 @@ const Scanner = (() => {
     if (!codeSeen) notes.push('The middle markers weren’t visible, so the sheet is read with the chart’s current rows.');
     else if (scanCode !== optCode()) {
       const o = codeOpts(scanCode), on = EXTRAS.filter(k => o[k]).map(k => OPT_LABEL[k]);
-      const rows = (on.length ? `${on.join(', ')} rows` : 'no extra rows') + (o.prog ? '' : ' and no prognosis row');
+      const rows = (on.length ? `${on.join(', ')} rows` : 'no extra rows') + (o.prog ? '' : ', no prognosis row') + (o.foot ? '' : ', no Diagnosis & plan');
       notes.push(`This sheet has ${rows}; applying switches the chart to match.`);
     }
     $('alignNote').hidden = !notes.length;
@@ -1696,7 +1722,7 @@ const Scanner = (() => {
   const pct = v => (v / L.sheet.w * 100) + '%';
 
   const HDR = ['HN', 'Age', 'Date'];
-  const HW_LABELS = { Patient: 'Name', Examiner: 'Examiner', diagnosis: 'Diagnosis', treatment_plan: 'Treatment' };
+  const HW_LABELS = { Patient: 'Name', Examiner: 'Examiner', diagnosis: 'Diagnosis', contributing_factors: 'Contributing factors', treatment_plan: 'Treatment' };
   const VISIT = ['Initial', 'Re-eval', 'SPT'], PROG = ['Good', 'Fair', 'Poor'];
 
   // One list row: label, a crop of what was written, and the value or control.
@@ -1769,9 +1795,11 @@ const Scanner = (() => {
       pc.appendChild(row);
     }
     pc.appendChild(segmentRow('Visit', VISIT));
-    ac.appendChild(segmentRow('Prognosis', PROG));
-    ac.appendChild(handwritingRow('diagnosis', true));
-    ac.appendChild(handwritingRow('treatment_plan', true));
+    // Assessment exists only on sheets that print the Diagnosis & plan section.
+    const areas = L.areas || {};
+    ac.parentElement.hidden = !Object.keys(areas).length;
+    if ((L.checks || []).some(c => PROG.includes(c.label))) ac.appendChild(segmentRow('Prognosis', PROG));
+    for (const key of ['diagnosis', 'contributing_factors', 'treatment_plan']) if (areas[key]) ac.appendChild(handwritingRow(key, true));
   }
 
   function showExtras(res) {
