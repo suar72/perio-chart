@@ -182,6 +182,7 @@
   tr.img .root { fill: #fff; }
   tr.img .behind { fill: #fff; stroke: #858585; stroke-width: .8; }
   tr.img .detail { fill: none; stroke: #858585; stroke-width: .5; }
+  tr.img .root-detail { fill: none; stroke: #858585; stroke-width: .5; }
   tr.img .landmark { fill: none; stroke: #555; stroke-width: .75; }
   tr.img .guide { stroke: #a8a8a8; stroke-width: .5; stroke-dasharray: 2 2; vector-effect: non-scaling-stroke; }
   tr.img td.missing .tooth-svg { opacity: .3; }
@@ -682,136 +683,181 @@ function cellHTML(kind, t, surf) {
 }
 
 /* ---------- tooth drawings ----------
-   Tooth-specific contours in mm; roots up, crown down, mesial toward +x. */
+   Clean outline study based on the clinic's reference strips (October 2026).
+   The existing drawing box and CEJ stay fixed. Coordinates are in drawing units:
+   roots up, crown down, distal -x, mesial +x; the opposite side is mirrored. */
 const Y0 = 18, VB_W = 14, VB_H = 30, X_STRETCH = 1.1;
 const toothParts = (() => {
-const upper={
-1:{W:8.5,cw:6.8,L:10.5,R:15,type:'inc',bend:-.65},
-2:{W:6.5,cw:4.9,L:9,R:13,type:'inc',bend:-1.05},
-3:{W:7.5,cw:5.4,L:10,R:17,type:'can',bend:-.9},
-4:{W:7,cw:5,L:8.5,R:14,type:'pm',bend:-.65},
-5:{W:6.5,cw:4.9,L:8.2,R:14,type:'pm',bend:-.5},
-6:{W:10,cw:8.2,L:7.5,R:12,Rp:13,T:3.7,type:'mol'},
-7:{W:9,cw:7.5,L:7,R:11.5,Rp:12,T:4.3,type:'mol'},
-8:{W:8.4,cw:7,L:6.6,R:10.5,Rp:11,T:4.8,type:'mol'}
-};
-const lower={
-1:{W:5,cw:3.6,L:9,R:12.5,type:'inc',bend:-.2},
-2:{W:5.5,cw:4,L:9.5,R:14,type:'inc',bend:-.55},
-3:{W:7,cw:5.2,L:11,R:16,type:'can',bend:-.7},
-4:{W:7,cw:5.1,L:8.5,R:14,type:'pm',bend:-.65},
-5:{W:7,cw:5.2,L:8,R:14.5,type:'pm',bend:-.45},
-6:{W:11,cw:9.1,L:7.5,R:14,T:2.9,type:'mol'},
-7:{W:10.5,cw:8.9,L:7,R:13,T:3.4,type:'mol'},
-8:{W:9.7,cw:8.1,L:7,R:11,T:4.3,type:'mol'}
-};
-const f=x=>+x.toFixed(3),Y=18;
-const P=(cls,d)=>[cls,d];
-// Every construction is in the tooth's frontal plane: distal -x, mesial +x.
-function cej(c){return `Q0 ${Y-.65} ${f(-c)} ${Y+.35}Z`}
-function single(s){
- const c=s.cw/2,a=Y-s.R,d=s.bend;
- return `M${-c} ${Y+.35} C${f(-c+.1)} ${Y-3.8} ${f(-c*.66)} ${f(a+4.1)} ${f(d-.38)} ${f(a+.65)} Q${f(d-.2)} ${f(a-.08)} ${f(d+.12)} ${f(a+.18)} C${f(d+.95)} ${f(a+1.6)} ${f(c*.86)} ${f(a+5)} ${c} ${Y+.35} `+cej(c);
-}
-function anterior(s,u,up,ling){
- const c=s.cw/2,w=s.W/2,b=Y+s.L;
- const round=up&&u===2?.95:up?.6:.32;
- let d;
- if(s.type==='inc'){
- d=`M${-c} ${Y+.35} C${f(-c-.35)} ${f(Y+s.L*.3)} ${f(-w)} ${f(b-2.8)} ${f(-w+.18)} ${f(b-1.0)} Q${f(-w+.25)} ${f(b-.08)} ${f(-w+round+.2)} ${f(b-.08)} C${f(-w+1.6)} ${f(b+.04)} ${f(w-1.2)} ${f(b+.03)} ${f(w-.3)} ${b} Q${f(w)} ${b} ${f(w)} ${f(b-.4)} C${f(w+.06)} ${f(Y+s.L*.56)} ${f(c+.24)} ${f(Y+s.L*.23)} ${c} ${Y+.35} `+cej(c);
- }else{
- // A continuous distal convexity flowing directly into the long distal cusp ridge.
- // The old curve doubled back toward the cervix here, producing a hooked shoulder.
- const tip=up?.18:.38,contact=up?.57:.63;
- d=`M${-c} ${Y+.35} C${f(-c-.12)} ${f(Y+s.L*.22)} ${f(-w-.05)} ${f(Y+s.L*.40)} ${f(-w+.10)} ${f(Y+s.L*contact)} C${f(-w+.18)} ${f(Y+s.L*.73)} ${f(-1.45)} ${f(b-.90)} ${f(tip-.20)} ${f(b-.13)} Q${f(tip)} ${f(b+.05)} ${f(tip+.23)} ${f(b-.15)} C${f(tip+1.1)} ${f(b-.68)} ${f(w-.12)} ${f(Y+s.L*.77)} ${f(w-.02)} ${f(Y+s.L*.68)} C${f(w+.02)} ${f(Y+s.L*.48)} ${f(c+.12)} ${f(Y+s.L*.18)} ${c} ${Y+.35} `+cej(c);
- }
- const details=[];
- if(ling&&s.type==='can'){
-  // Upper canines have more relief; lower canines have a much flatter lingual surface.
-  const base=Y+(up?2.15:2.8),edge=b-(up?1.25:1.55);
-  details.push(P('detail',`M${f(-w+1.05)} ${f(edge-.45)} Q${f(-c*.73)} ${f(Y+3.8)} -.15 ${f(base)} Q${f(c*.67)} ${f(Y+3.8)} ${f(w-.9)} ${f(edge)}`));
-  if(up)details.push(P('detail',`M-.15 ${f(base+.5)} Q.2 ${f(Y+5)} .18 ${f(b-1.25)}`));
- }else if(ling){
-  const strength=up?1:.58;
-  details.push(P('detail',`M${f(-w+1)} ${f(b-1)} Q${f(-c*.68)} ${f(Y+3.5)} ${f(-.25*strength)} ${f(Y+2)} Q${f(c*.65)} ${f(Y+3.4)} ${f(w-.8)} ${f(b-.9)}`));
-  details.push(P('detail',`M${f(-c*.46)} ${f(Y+2.75)} Q0 ${f(Y+1.55)} ${f(c*.52)} ${f(Y+2.7)}`));
- }
- // Facial ridges are changes of surface convexity, not incised lines.
- return [P('crown',d),...details];
-}
-function premolar(s,u,up,ling){
- const c=s.cw/2,w=s.W/2,b=Y+s.L;
- if(!up&&u===4&&ling){
-  // The whole crown is the silhouette. The small lingual cusp is an internal
-  // occlusal boundary; it is not a second broad crown pasted over the buccal cusp.
-  const tip=.10;
-  const d=`M${-c} ${Y+.35} C${f(-c-.18)} ${Y+1.4} ${f(-w+.1)} ${Y+3.3} ${f(-w+.18)} ${Y+4.55} Q${f(-w+.22)} ${Y+5.0} ${f(-w+.62)} ${Y+5.25} C${f(-w+1.3)} ${f(b-2.65)} ${f(tip-.85)} ${f(b-.55)} ${f(tip-.48)} ${f(b-.34)} C${f(tip-.22)} ${f(b-.17)} ${f(tip+.20)} ${f(b-.17)} ${f(tip+.48)} ${f(b-.36)} C${f(tip+.88)} ${f(b-.64)} ${f(w-.85)} ${f(b-2.6)} ${f(w-.40)} ${Y+5.1} Q${f(w-.12)} ${Y+4.8} ${f(w-.14)} ${Y+4.25} C${f(w-.15)} ${Y+2.7} ${f(c+.14)} ${Y+1.3} ${c} ${Y+.35} `+cej(c);
-  // Distal marginal ridge at left, small lingual cusp, lower mesial marginal ridge at right.
-  const boundary=`M${f(-w+.45)} ${Y+4.95} Q-1.65 ${Y+4.5} -.75 ${Y+4.7} C-.35 ${Y+4.74} -.22 ${Y+5.10} .12 ${Y+5.10} C.49 ${Y+5.10} .67 ${Y+4.71} 1.04 ${Y+4.64} Q1.40 ${Y+4.56} 1.7 ${Y+4.55} Q2.05 ${Y+4.35} 2.36 ${Y+4.5} L${f(w-.40)} ${Y+5.1}`;
-  return [P('crown',d),P('landmark',boundary),P('detail',`M1.7 ${Y+4.55} Q1.50 ${Y+4.1} 1.60 ${Y+3.65}`)];
- }
- const tip=up&&u===4?-.35:.1;
- const B=b-(ling&&up?.7:0);
- let d=`M${-c} ${Y+.35} C${f(-c-.4)} ${Y+2} ${f(-w)} ${f(Y+s.L*.46)} ${f(-w+.12)} ${f(Y+s.L*.65)} C${f(-w+.2)} ${f(B-1.7)} ${f(-w+.6)} ${f(B-1.25)} ${f(-w+1.05)} ${f(B-1.15)} `;
- if(ling&&!up&&u===5){
- d+=`Q${f(-w+1.6)} ${f(B-.5)} -1.2 ${f(B-.55)} Q-.75 ${f(B-.55)} -.5 ${f(B-1.25)} Q.1 ${f(B-.35)} 1.1 ${B} Q1.5 ${f(B+.1)} 1.85 ${f(B-.4)} L${f(w-.5)} ${f(B-1.3)} `;
- }else{
- d+=`C${f(-w+1.5)} ${f(B-.95)} ${f(tip-.55)} ${f(B-.2)} ${f(tip-.15)} ${B} Q${f(tip+.02)} ${f(B+.1)} ${f(tip+.22)} ${f(B-.03)} L${f(w-.45)} ${f(B-1.25)} `;
- }
- d+=`Q${w} ${f(B-1.7)} ${f(w-.06)} ${f(Y+s.L*.58)} C${f(w)} ${Y+3} ${f(c+.2)} ${Y+1.6} ${c} ${Y+.35} `+cej(c);
- const detail=[];
- if(ling&&!up&&u===5)detail.push(P('detail',`M-.5 ${f(B-1.22)} Q-.65 ${f(B-2)} -.55 ${f(B-3)}`));
- return [P('crown',d),...detail];
-}
-function buccalRoots(s,up,u){
- const c=s.cw/2,F=Y-s.T;
- const compact=u===7?.65:u===8?.25:1;
- const ad=Y-s.R*(up?.89:.94),am=Y-s.R;
- const xd=-c*.68-.65*compact,xm=c*.64+.65*compact;
- const d=`M${-c} ${Y+.35} C${f(-c-.03)} ${Y-3} ${f(xd-.8)} ${f(ad+4)} ${f(xd-.12)} ${f(ad+.45)} Q${f(xd+.06)} ${f(ad-.03)} ${f(xd+.34)} ${f(ad+.4)} C${f(xd+1.0)} ${f(ad+1.5)} ${f(-1.15)} ${f(F-1.2)} -.5 ${f(F-.3)} Q0 ${f(F+.28)} .53 ${f(F-.3)} C${f(up?1.2:1.15)} ${f(F-1.15)} ${f(xm-1.2)} ${f(am+3.2)} ${f(xm-.72)} ${f(am+.55)} Q${f(xm-.34)} ${f(am-.15)} ${f(xm-.04)} ${f(am+.44)} C${f(xm+.85)} ${f(am+3.3)} ${f(c+.05)} ${Y-3.4} ${c} ${Y+.35} `+cej(c);
- const gro=up?[
-  P('detail',`M${f(c*.63)} ${Y-1.5} Q${f(c*.48)} ${f(F-2.2)} ${f(xm-.55)} ${f(am+2.6)}`)
- ]:[
-  P('detail',`M${f(c*.66)} ${Y-1.8} C${f(c*.43)} ${f(F-1.7)} ${f(xm-.63)} ${f(am+5)} ${f(xm-.6)} ${f(am+2.5)}`),
-  P('detail',`M${f(-c*.65)} ${Y-2.5} Q${f(-c*.65)} ${f(F-3)} ${f(xd+.42)} ${f(ad+3)}`)
- ];
- return [P('root',d),...gro];
-}
-function palatalRoot(s,front){
- const a=Y-s.Rp,c=s.cw/2;
- if(!front)return P('behind',`M-1.8 ${Y-s.T+1} C-2.05 ${a+5} -1.15 ${a+.8} -.35 ${a+.25} Q.05 ${a-.1} .35 ${a+.35} C1.5 ${a+2} 1.95 ${a+6} 1.9 ${Y-s.T+1}Z`);
- return P('root',`M${-c} ${Y+.35} Q${f(-c+.28)} ${Y-2} -2.65 ${Y-s.T-.7} C-2.25 ${a+4.4} -1.05 ${a+.45} -.3 ${a+.12} Q.1 ${a-.05} .4 ${a+.48} C1.4 ${a+2.5} 2.4 ${a+6} 2.8 ${Y-s.T-.8} Q${f(c-.1)} ${Y-2} ${c} ${Y+.35} `+cej(c));
-}
-function molarCrown(s,u,up,ling){
- const c=s.cw/2,w=s.W/2,b=Y+s.L;
- // Cusps run distal to mesial; first mandibular molar has three visible buccal cusps.
- const cusps=up?(ling?[[ -.60,b-1.0],[.43,b]]:[[-.52,b-.5],[.46,b]]):(!ling&&u===6?[[-.79,b-1.0],[-.12,b-.12],[.58,b]]:[[-.5,b-.12],[.49,b]]);
- const shoulder=b-1.75;
- let d=`M${-c} ${Y+.35} C${f(-c-.35)} ${Y+1.8} ${f(-w)} ${Y+3} ${f(-w+.03)} ${f(shoulder-.5)} Q${f(-w+.08)} ${f(shoulder)} ${f(-w+.45)} ${f(shoulder+.15)} `;
- const dx=cusps[0][0]*w;
- d+=`Q${f(dx-.65)} ${f(cusps[0][1]-.15)} ${f(dx)} ${f(cusps[0][1])} `;
- const grooves=[];
- for(let i=1;i<cusps.length;i++){
- const x0=cusps[i-1][0]*w,y0=cusps[i-1][1],x1=cusps[i][0]*w,y1=cusps[i][1];
- const gx=(x0+x1)/2,gy=Math.min(y0,y1)-.75;
- d+=`C${f(x0+.55)} ${f(y0+.03)} ${f(gx-.3)} ${f(gy+.1)} ${f(gx)} ${f(gy)} C${f(gx+.35)} ${f(gy+.05)} ${f(x1-.6)} ${f(y1)} ${f(x1)} ${f(y1)} `;
- grooves.push(P('detail',`M${f(gx)} ${f(gy+.01)} Q${f(gx-.12)} ${f(gy-1.1)} ${f(gx+.03)} ${f(gy-2.15)}`));
- }
- const last=cusps[cusps.length-1];
- d+=`Q${f(last[0]*w+.65)} ${f(last[1])} ${f(w-.28)} ${f(b-1.2)} Q${f(w+.06)} ${f(b-1.65)} ${f(w-.01)} ${f(b-2.15)} C${f(w-.02)} ${Y+3} ${f(c+.26)} ${Y+1.9} ${c} ${Y+.35} `+cej(c);
- return [P('crown',d),...grooves];
-}
-function newParts(t,view){
- const up=Math.floor(t/10)<=2,u=t%10,s=(up?upper:lower)[u],ling=view!=='b';
- if(s.type==='mol'){
- const roots=buccalRoots(s,up,u);
- if(up&&ling)return [P('behind',roots[0][1]),palatalRoot(s,true),...molarCrown(s,u,up,ling)];
- return [...(up?[palatalRoot(s,false)]:[]),...roots,...molarCrown(s,u,up,ling)];
- }
- return [P('root',single(s)),...(s.type==='pm'?premolar(s,u,up,ling):anterior(s,u,up,ling))];
-}
+  const upper = {
+    1: { W: 8.8, cw: 6.5, L: 10.3, R: 15, bend: -.65 },
+    2: { W: 6.8, cw: 4.9, L: 9.1, R: 13, bend: -.9 },
+    3: { W: 7.8, cw: 5.5, L: 9.9, R: 17, bend: -.8 },
+    4: { W: 7.3, cw: 5.0, L: 6.8, R: 14, bend: -.55 },
+    5: { W: 7.0, cw: 5.0, L: 6.6, R: 13.8, bend: -.45 },
+    6: { W: 10.2, cw: 8.0, L: 6.4, R: 12.5, Rp: 13.5, T: 3.7 },
+    7: { W: 9.4, cw: 7.4, L: 6.1, R: 11.7, Rp: 12.4, T: 4.3 },
+    8: { W: 8.8, cw: 7.0, L: 5.8, R: 10.7, Rp: 11.2, T: 5.0 },
+  };
+  const lower = {
+    1: { W: 5.4, cw: 3.6, L: 8.3, R: 12.5, bend: -.2 },
+    2: { W: 5.9, cw: 4.0, L: 8.7, R: 14, bend: -.5 },
+    3: { W: 7.2, cw: 5.2, L: 10.6, R: 16, bend: -.65 },
+    4: { W: 7.2, cw: 4.9, L: 6.7, R: 14.1, bend: -.6 },
+    5: { W: 7.5, cw: 5.2, L: 6.6, R: 14.5, bend: -.5 },
+    6: { W: 11.0, cw: 9.0, L: 6.1, R: 14, T: 3.0 },
+    7: { W: 10.4, cw: 8.6, L: 5.9, R: 13, T: 3.5 },
+    8: { W: 9.4, cw: 7.8, L: 5.7, R: 11.0, T: 4.8 },
+  };
+  const n = v => +v.toFixed(3);
+  const p = (x, y) => `${n(x)},${n(y)}`;
+  const part = (cls, d) => [cls, d];
+  const y = Y0;
+  const cej = c => `Q${p(0, y - .65)} ${p(-c, y + .35)}Z`;
 
-return newParts;
+  function single(s) {
+    const c = s.cw / 2, a = y - s.R, d = s.bend;
+    // Full middle third, a rounded apical end, and a gentle distal bend.
+    return `M${p(-c, y + .35)} C${p(-c * .98, y - s.R * .29)} ${p(-c * .78, a + 4.6)} ${p(d - .53, a + 1.25)} ` +
+      `Q${p(d - .35, a + .12)} ${p(d + .10, a + .19)} C${p(d + 1.02, a + .50)} ${p(c * .82, a + 5.1)} ${p(c, y + .35)} ` + cej(c);
+  }
+
+  function incisor(s, up, u, ling) {
+    const c = s.cw / 2, w = s.W / 2, b = y + s.L;
+    const round = up && u === 2 ? .85 : up ? .52 : .30;
+    // Broad incisal edge, rounded distal angle, and a quieter mesial corner.
+    let d = `M${p(-c, y + .35)} C${p(-c - .38, y + s.L * .29)} ${p(-w + .12, b - 2.1)} ${p(-w + .08, b - .82)} ` +
+      `Q${p(-w + .08, b - .08)} ${p(-w + round, b - .03)} C${p(-w + 1.4, b + .02)} ${p(w - 1.1, b + .02)} ${p(w - .34, b)} ` +
+      `Q${p(w - .05, b)} ${p(w - .07, b - .34)} C${p(w - .06, y + s.L * .59)} ${p(c + .21, y + s.L * .24)} ${p(c, y + .35)} ` + cej(c);
+    if (up) {
+      // Both corners have continuous tangents; the distal corner is rounder,
+      // especially on a lateral incisor, without making the incisal edge oval.
+      const distal = u === 2 ? 1.40 : 1.10;
+      const mesial = u === 2 ? .90 : .66;
+      d = `M${p(-c, y + .35)} C${p(-c - .30, y + s.L * .28)} ${p(-w + .05, b - 3.0)} ${p(-w + .05, b - distal)} ` +
+        `C${p(-w + .05, b - distal * .40)} ${p(-w + distal * .44, b - .05)} ${p(-w + distal, b - .05)} ` +
+        `C${p(-w + distal + .85, b - .05)} ${p(w - mesial - .85, b)} ${p(w - mesial, b)} ` +
+        `C${p(w - mesial * .43, b)} ${p(w - .05, b - mesial * .42)} ${p(w - .05, b - mesial)} ` +
+        `C${p(w - .05, y + s.L * .59)} ${p(c + .16, y + s.L * .25)} ${p(c, y + .35)} ` + cej(c);
+    }
+    const out = [part('crown', d)];
+    if (ling) {
+      const ridge = up ? .80 : .56;
+      out.push(part('detail', `M${p(-w + ridge, b - .95)} Q${p(-c * .67, y + 2.7)} ${p(-.2, y + 1.8)} ` +
+        `M${p(w - ridge, b - .85)} Q${p(c * .65, y + 2.7)} ${p(.35, y + 1.9)}`));
+      if (up) out.push(part('detail', `M${p(-1.1, y + 2.8)} Q${p(0, y + 1.9)} ${p(1.1, y + 2.8)}`));
+    }
+    return out;
+  }
+
+  function canine(s, up, ling) {
+    const c = s.cw / 2, w = s.W / 2, b = y + s.L, tip = up ? .18 : .30;
+    // Taller crown, a longer distal cusp ridge, a shorter mesial ridge,
+    // and a near-straight mesial outline on the narrower mandibular canine.
+    const d = `M${p(-c, y + .35)} C${p(-c - .14, y + s.L * .22)} ${p(-w + .04, y + s.L * .40)} ${p(-w + .06, y + s.L * .59)} ` +
+      `C${p(-w + .08, y + s.L * .72)} ${p(tip - 1.25, b - .85)} ${p(tip - .20, b - .12)} ` +
+      `Q${p(tip, b + .07)} ${p(tip + .22, b - .13)} C${p(tip + .95, b - .60)} ${p(w - .10, y + s.L * .80)} ${p(w - .04, y + s.L * .72)} ` +
+      `C${p(w - .01, y + s.L * .49)} ${p(c + (up ? .16 : .08), y + s.L * .21)} ${p(c, y + .35)} ` + cej(c);
+    const out = [part('crown', d)];
+    if (ling) {
+      // Keep the fossa/ridge hints away from both cusp slopes. Clipping is a
+      // safeguard; the strokes themselves must fit within the crown silhouette.
+      const inset = up ? .60 : .57;
+      out.push(part('detail', `M${p(-w * inset, b - 2.8)} Q${p(-c * .73, y + 4.0)} ${p(-c * .30, y + 2.1)} ` +
+        `M${p(w * inset, b - 2.7)} Q${p(c * .70, y + 3.8)} ${p(c * .32, y + 2.15)}`));
+      if (up) out.push(part('detail', `M${p(-.1, y + 2.2)} Q${p(.1, y + 4.0)} ${p(.18, b - 1.3)}`));
+    }
+    return out;
+  }
+
+  function premolar(s, up, u, ling) {
+    const c = s.cw / 2, w = s.W / 2, b = y + s.L - (up && ling ? .45 : 0);
+    const tip = up && u === 4 && !ling ? -.30 : .12;
+    let edge;
+    if (!up && u === 5 && ling) {
+      edge = `C${p(-w + .9, b - .05)} ${p(-1.3, b - .2)} ${p(-.8, b - .65)} ` +
+        `Q${p(-.38, b - .25)} ${p(.35, b - .12)} Q${p(1.2, b + .02)} ${p(w - .58, b - .68)} `;
+    } else {
+      // Broad and blunted cusp tip, rather than a sharp chevron.
+      edge = `C${p(-w + 1.1, b - .60)} ${p(tip - .85, b - .24)} ${p(tip - .43, b - .15)} ` +
+        `Q${p(tip, b + .03)} ${p(tip + .52, b - .21)} C${p(tip + 1.05, b - .38)} ${p(w - .9, b - .57)} ${p(w - .50, b - .78)} `;
+    }
+    const d = `M${p(-c, y + .35)} C${p(-c - .37, y + 1.45)} ${p(-w + .05, y + s.L * .45)} ${p(-w + .09, y + s.L * .66)} ` +
+      `Q${p(-w + .12, b - .96)} ${p(-w + .55, b - .77)} ` + edge +
+      `Q${p(w - .08, b - 1.0)} ${p(w - .06, y + s.L * .64)} C${p(w - .02, y + s.L * .43)} ${p(c + .35, y + 1.5)} ${p(c, y + .35)} ` + cej(c);
+    const out = [part('crown', d)];
+    if (!up && u === 4 && ling) {
+      // Low, rounded lingual cusp; the taller buccal cusp remains the outer silhouette.
+      out.push(part('landmark', `M${p(-1.55, y + s.L * .65)} C${p(-.9, y + s.L * .64)} ${p(-.65, y + s.L * .77)} ${p(.08, y + s.L * .77)} ` +
+        `C${p(.75, y + s.L * .77)} ${p(.85, y + s.L * .62)} ${p(1.5, y + s.L * .63)}`));
+      out.push(part('detail', `M${p(1.5, y + s.L * .63)} Q${p(1.35, y + s.L * .54)} ${p(1.55, y + s.L * .48)}`));
+    } else if (!up && u === 5 && ling) {
+      out.push(part('detail', `M${p(-.8, b - .65)} Q${p(-.65, b - 1.15)} ${p(-.55, b - 1.65)}`));
+    }
+    return out;
+  }
+
+  function buccalRoots(s, up, u) {
+    const c = s.cw / 2, f = y - s.T;
+    const ad = y - s.R * (up ? .90 : .94), am = y - s.R;
+    const spread = u === 6 ? 1 : u === 7 ? .65 : .20;
+    const xd = -c * .69 - .35 * spread, xm = c * .61 + .20 * spread;
+    // Different distal and mesial roots, with rounded apices and a clear furcation.
+    return `M${p(-c, y + .35)} C${p(-c * 1.01, y - 3.4)} ${p(xd - .90, ad + 3.4)} ${p(xd - .23, ad + .65)} ` +
+      `Q${p(xd - .05, ad - .02)} ${p(xd + .32, ad + .45)} C${p(xd + 1.07, ad + 1.85)} ${p(-1.32, f - 1.4)} ${p(-.55, f - .35)} ` +
+      `Q${p(.05, f + .25)} ${p(.66, f - .42)} C${p(1.5, f - 1.65)} ${p(xm - 1.18, am + 2.65)} ${p(xm - .65, am + .6)} ` +
+      `Q${p(xm - .34, am - .05)} ${p(xm + .03, am + .45)} C${p(xm + .95, am + 2.9)} ${p(c * .98, y - 3.5)} ${p(c, y + .35)} ` + cej(c);
+  }
+
+  function palatalRoot(s, front) {
+    const a = y - s.Rp, c = s.cw / 2;
+    if (!front) return part('behind', `M${p(-1.85, y - s.T + .8)} C${p(-2.10, a + 4.5)} ${p(-1.05, a + .8)} ${p(-.43, a + .25)} ` +
+      `Q${p(-.07, a - .03)} ${p(.30, a + .4)} C${p(1.35, a + 1.65)} ${p(1.95, a + 5.0)} ${p(1.85, y - s.T + .8)}Z`);
+    return part('root', `M${p(-c, y + .35)} C${p(-c + .15, y - 2.9)} ${p(-2.6, a + 6.0)} ${p(-.78, a + .8)} ` +
+      `Q${p(-.42, a - .05)} ${p(.12, a + .25)} C${p(1.5, a + 1.0)} ${p(2.65, a + 5.1)} ${p(c, y + .35)} ` + cej(c));
+  }
+
+  function molarCrown(s, up, u, ling) {
+    const c = s.cw / 2, w = s.W / 2, b = y + s.L;
+    const cusps = up ? (ling ? [[-.58, b - .48], [.46, b]] : [[-.53, b - .22], [.47, b]])
+      : (!ling && u === 6 ? [[-.78, b - .38], [-.12, b - .04], [.57, b]] : [[-.51, b - .05], [.48, b]]);
+    let d = `M${p(-c, y + .35)} C${p(-c - .50, y + 1.2)} ${p(-w + .04, y + 1.65)} ${p(-w + .05, y + s.L * .65)} ` +
+      `Q${p(-w + .08, b - .35)} ${p(-w + .50, b - .20)} `;
+    const first = cusps[0];
+    d += `Q${p(first[0] * w - .45, first[1])} ${p(first[0] * w, first[1])} `;
+    const details = [];
+    for (let i = 1; i < cusps.length; i++) {
+      const [xf, yy] = cusps[i], [prev, py] = cusps[i - 1];
+      const px = prev * w, x = xf * w, gx = (px + x) / 2, gy = Math.min(py, yy) - .45;
+      d += `C${p(px + .5, py)} ${p(gx - .34, gy)} ${p(gx, gy)} C${p(gx + .34, gy)} ${p(x - .5, yy)} ${p(x, yy)} `;
+      details.push(part('detail', `M${p(gx, gy)} Q${p(gx - .12, gy - .65)} ${p(gx, gy - 1.15)}`));
+    }
+    const last = cusps[cusps.length - 1];
+    d += `Q${p(last[0] * w + .70, last[1])} ${p(w - .45, b - .20)} Q${p(w - .05, b - .40)} ${p(w - .06, y + s.L * .65)} ` +
+      `C${p(w - .02, y + 1.75)} ${p(c + .44, y + 1.15)} ${p(c, y + .35)} ` + cej(c);
+    return [part('crown', d), ...details];
+  }
+
+  function thirdMolarRoot(s, up, ling) {
+    // A representative convergent/fused third molar, as in the reference, not a universal anatomy.
+    const c = s.cw / 2, a = y - s.R, bend = -.85;
+    const root = `M${p(-c, y + .35)} C${p(-c - .10, y - 3.3)} ${p(-c * .65, a + 1.4)} ${p(bend - .35, a + .30)} ` +
+      `Q${p(bend + .20, a - .1)} ${p(bend + .60, a + .40)} C${p(c * .8, a + 2.6)} ${p(c + .10, y - 3.7)} ${p(c, y + .35)} ` + cej(c);
+    const out = [part('root', root)];
+    out.push(part('root-detail', `M${p(-.20, y - 1.6)} Q${p(-.35, y - 4.7)} ${p(-.75, y - 6.1)}`));
+    return out;
+  }
+
+  return function toothParts(t, view) {
+    const up = Math.floor(t / 10) <= 2, u = t % 10, s = (up ? upper : lower)[u], ling = view !== 'b';
+    if (u >= 6) {
+      const roots = u === 8 ? thirdMolarRoot(s, up, ling)
+        : up && ling ? [part('behind', buccalRoots(s, up, u)), palatalRoot(s, true)]
+        : [...(up ? [palatalRoot(s, false)] : []), part('root', buccalRoots(s, up, u))];
+      return [...roots, ...molarCrown(s, up, u, ling)];
+    }
+    return [part('root', single(s)), ...(u <= 2 ? incisor(s, up, u, ling)
+      : u === 3 ? canine(s, up, ling) : premolar(s, up, u, ling))];
+  };
 })();
 
 function toothSVG(t, roots, view) {
