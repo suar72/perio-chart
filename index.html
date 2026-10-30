@@ -262,6 +262,28 @@
   .sheet.portrait .sub::after { font-size: 5.5px; }
   .sheet.portrait tr.img td, .sheet.portrait tr.img .pic { height: 8.6mm; }   /* keeps the portrait sheet ≤ 265 mm: fits Letter too */
 
+  /* Full template: contributing-factor checklist under the header; no scan markers (scanning uses Simplified). */
+  .factors { display: none; margin: 0 0 1.8mm; }
+  .sheet.full .factors { display: block; }
+  .factors h3 { margin: 0 0 1mm; font-size: 9.5px; text-transform: uppercase; letter-spacing: .4px; }
+  .factors .fgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1mm 9mm; font-size: 9.5px; }
+  .fitem { display: flex; align-items: flex-end; gap: 1.5mm; min-width: 0; }
+  .fdet { flex: 1; min-width: 8mm; border: 0; border-bottom: 1px solid var(--soft); background: transparent; font: inherit; font-size: 10px;
+    height: 4.2mm; padding: 0 .8mm; color: var(--ink); }
+  .fhead { display: flex; align-items: baseline; justify-content: space-between; gap: 4mm; }
+  .fsum { display: flex; align-items: baseline; gap: 1.2mm; font-size: 10px; }
+  .fsum b { font-size: 9px; color: #555; margin-left: 3mm; }
+  .fsum output { font-weight: 700; min-width: 7mm; }
+  .sheet.full footer.bottom { display: none; }   /* the Full template has no Diagnosis & plan section */
+  label.fk { display: inline-flex; align-items: center; gap: 1.2mm; white-space: nowrap; }
+  label.fk input { margin: 0; width: 3mm; height: 3mm; }
+  .sheet.full .marker, .sheet.full .scanbar { display: none; }
+  body.tpl-full .extra-opt, body.tpl-full #rowsBtn { display: none; }
+  .popover.xl { left: auto; right: 0; width: 320px; transform-origin: top right; }
+  .xl-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 10px 4px; }
+  .popover .seg { margin: 4px 10px; }
+  .xl-status { margin: 6px 10px 2px; font-size: 12px; color: var(--ui-sub); min-height: 1em; }
+  .xl-status.err { color: var(--ui-red); }
   footer.bottom { display: grid; grid-template-columns: 1fr 1.35fr; gap: 4mm; margin-top: 1.8mm; }
   .sheet.nofoot footer.bottom { display: none; }
   /* Diagnosis & plan hidden, no extra rows: the freed ~37 mm goes to taller chart rows and drawings. */
@@ -429,21 +451,24 @@
   <div class="appbar-in">
     <h1 class="app-title">Periodontal Chart</h1>
     <div class="group">
+      <div class="seg" data-for="template" role="group" aria-label="Chart template" title="Simplified: PD, furcation, mobility (scannable). Full: KG, plaque, BOP, CEJ-GM, PD, CAL, matching the Excel chart.">
+        <button data-v="simple">Simplified</button><button data-v="full">Full</button>
+      </div>
       <div class="seg" data-for="numbering" role="group" aria-label="Tooth numbering">
         <button data-v="fdi">FDI</button><button data-v="uni">Universal</button>
       </div>
       <div class="menuwrap">
         <button class="btn" id="rowsBtn" aria-haspopup="true" aria-expanded="false" onclick="toggleRowsMenu()">Rows <span id="rowsCount" class="badge" hidden></span></button>
         <div class="popover" id="rowsMenu" role="menu" hidden>
-          <p class="pop-title">Extra rows</p>
-          <label class="switch row"><span>CEJ–GM <small>recession +, mm</small></span><input type="checkbox" data-opt="gm"><span class="track"></span></label>
-          <label class="switch row"><span>CAL <small>PD + CEJ–GM, calculated</small></span><input type="checkbox" data-opt="cal"><span class="track"></span></label>
-          <label class="switch row"><span>BOP <small>+ / −</small></span><input type="checkbox" data-opt="bop"><span class="track"></span></label>
-          <label class="switch row"><span>Plaque <small>✓</small></span><input type="checkbox" data-opt="pi"><span class="track"></span></label>
-          <label class="switch row"><span>Prognosis <small>per tooth, G F P Q H</small></span><input type="checkbox" data-opt="prog" checked><span class="track"></span></label>
-          <p class="pop-title">Sheet</p>
-          <label class="switch row"><span>Diagnosis &amp; plan <small>diagnosis, prognosis, contributing factors, treatment</small></span><input type="checkbox" data-opt="foot" checked><span class="track"></span></label>
-          <p class="pop-note" id="rowsNote">Up to two extra rows fit the usual page (three with Diagnosis &amp; plan hidden); more turn it portrait. Hiding Diagnosis &amp; plan gives the chart taller boxes.</p>
+          <p class="pop-title extra-opt">Extra rows</p>
+          <label class="switch row extra-opt"><span>CEJ–GM <small>recession +, mm</small></span><input type="checkbox" data-opt="gm"><span class="track"></span></label>
+          <label class="switch row extra-opt"><span>CAL <small>PD + CEJ–GM, calculated</small></span><input type="checkbox" data-opt="cal"><span class="track"></span></label>
+          <label class="switch row extra-opt"><span>BOP <small>+ / −</small></span><input type="checkbox" data-opt="bop"><span class="track"></span></label>
+          <label class="switch row extra-opt"><span>Plaque <small>✓</small></span><input type="checkbox" data-opt="pi"><span class="track"></span></label>
+          <label class="switch row extra-opt"><span>Prognosis <small>per tooth, G F P Q H</small></span><input type="checkbox" data-opt="prog" checked><span class="track"></span></label>
+          <p class="pop-title extra-opt">Sheet</p>
+          <label class="switch row extra-opt"><span>Diagnosis &amp; plan <small>diagnosis, prognosis, contributing factors, treatment</small></span><input type="checkbox" data-opt="foot" checked><span class="track"></span></label>
+          <p class="pop-note extra-opt" id="rowsNote">Up to two extra rows fit the usual page (three with Diagnosis &amp; plan hidden); more turn it portrait. Hiding Diagnosis &amp; plan gives the chart taller boxes.</p>
         </div>
       </div>
       <label class="switch" title="The six black squares and scan instructions. Needed only on sheets you will scan.">
@@ -454,11 +479,31 @@
       <button class="btn plain" onclick="clearAll()">Clear</button>
       <button class="btn" onclick="window.print()">Print</button>
       <button class="btn" id="exportBtn" onclick="exportPdf()">Export PDF</button>
-      <button class="btn primary" onclick="Scanner.open(true)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.4-2h5.8l1.4 2h2.2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.4"/></svg>Scan sheet</button>
+      <div class="menuwrap" id="xlWrap">
+        <button class="btn" id="xlBtn" aria-haspopup="true" aria-expanded="false" onclick="toggleXlMenu()">Export Excel</button>
+        <div class="popover xl" id="xlMenu" role="dialog" aria-label="Export to Excel" hidden>
+          <p class="pop-title">Export to Excel</p>
+          <p class="pop-note">Fills the full periodontal chart workbook (Pre-Tx, Eva, Compare) with this chart.</p>
+          <div class="seg" id="xlSheet" role="group" aria-label="Sheet">
+            <button data-v="pre" aria-pressed="true">Pre-treatment</button><button data-v="eva" aria-pressed="false">Re-evaluation</button>
+          </div>
+          <div class="xl-actions">
+            <button class="btn primary" onclick="exportXlsx()">New workbook</button>
+            <button class="btn" onclick="document.getElementById('xlFile').click()">Add to my workbook…</button>
+          </div>
+          <input type="file" id="xlFile" accept=".xlsx" hidden onchange="exportXlsx(this.files[0]); this.value = ''">
+          <p class="xl-status" id="xlStatus" role="status"></p>
+        </div>
+      </div>
+      <button class="btn primary" id="scanBtn" onclick="Scanner.open(true)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.4-2h5.8l1.4 2h2.2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.4"/></svg>Scan sheet</button>
     </div>
   </div>
   <div class="notice" id="valueWarn" role="status" hidden><div><span id="valueWarnText"></span><button class="btn" id="furcConvert" onclick="convertFurc()">Convert to I–III</button></div></div>
 </header>
+<select id="template" onchange="applyOpts({ tpl: this.value })" hidden aria-hidden="true">
+  <option value="simple">Simplified</option>
+  <option value="full">Full</option>
+</select>
 <select id="numbering" onchange="build()" hidden aria-hidden="true">
   <option value="fdi">FDI (11–48)</option>
   <option value="uni">Universal (1–32)</option>
@@ -489,6 +534,12 @@
     <span class="brk"></span>
     <div class="marker" data-slot="tr" data-id="2"><svg viewBox="0 0 6 6"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1z"/></svg></div>
   </header>
+
+  <section class="factors" aria-label="Local etiologic and contributing factors">
+    <div class="fhead"><h3>Local etiologic and contributing factors</h3>
+      <span class="fsum"><b>BOP</b> <output id="fBOP">—</output><b>Plaque</b> <output id="fPI">—</output><b>Teeth</b> <output id="fTeeth">32</output></span></div>
+    <div class="fgrid"><div class="fitem"><label class="fk"><input type="checkbox" data-f="oh">Inadequate oral hygiene</label><input class="fdet" data-fd="oh" aria-label="Inadequate oral hygiene details" autocomplete="off"></div><div class="fitem"><label class="fk"><input type="checkbox" data-f="calc_supra">Supragingival calculus</label><input class="fdet" data-fd="calc_supra" aria-label="Supragingival calculus details" autocomplete="off"></div><div class="fitem"><label class="fk"><input type="checkbox" data-f="calc_sub">Subgingival calculus</label><input class="fdet" data-fd="calc_sub" aria-label="Subgingival calculus details" autocomplete="off"></div><div class="fitem"><label class="fk"><input type="checkbox" data-f="food">Food impaction</label><input class="fdet" data-fd="food" aria-label="Food impaction details" autocomplete="off"></div><div class="fitem"><label class="fk"><input type="checkbox" data-f="caries">Related caries</label><input class="fdet" data-fd="caries" aria-label="Related caries details" autocomplete="off"></div><div class="fitem"><label class="fk"><input type="checkbox" data-f="embrasure">Improper embrasure</label><input class="fdet" data-fd="embrasure" aria-label="Improper embrasure details" autocomplete="off"></div><div class="fitem"><label class="fk"><input type="checkbox" data-f="malposed">Malposed tooth</label><input class="fdet" data-fd="malposed" aria-label="Malposed tooth details" autocomplete="off"></div><div class="fitem"><label class="fk"><input type="checkbox" data-f="anatomy">Anatomical predisposing factor</label><input class="fdet" data-fd="anatomy" aria-label="Anatomical predisposing factor details" autocomplete="off"></div><div class="fitem"><label class="fk"><input type="checkbox" data-f="trauma">Traumatic occlusion</label><input class="fdet" data-fd="trauma" aria-label="Traumatic occlusion details" autocomplete="off"></div><div class="fitem"><label class="fk"><input type="checkbox" data-f="prosth">Defective prostheses</label><input class="fdet" data-fd="prosth" aria-label="Defective prostheses details" autocomplete="off"></div><div class="fitem"><label class="fk"><input type="checkbox" data-f="fillings">Defective fillings</label><input class="fdet" data-fd="fillings" aria-label="Defective fillings details" autocomplete="off"></div><div class="fitem"><label class="fk"><input type="checkbox" data-f="muscle">High muscle attachment</label><input class="fdet" data-fd="muscle" aria-label="High muscle attachment details" autocomplete="off"></div></div>
+  </section>
 
   <div class="jaw"><table class="chart" id="upper"></table></div>
   <div class="gap"></div>
@@ -630,13 +681,18 @@ function universal(t) {
    Per-tooth prognosis is on by default; switching it off adds 16 to the code (so older sheets keep codes 0-15).
    The Diagnosis & plan section (footer) is on by default; hiding it adds 32, which the bottom corner markers
    carry (7 and 9 instead of 3 and 5) while the middle markers keep carrying code & 31. */
-const opts = { gm: false, cal: false, bop: false, pi: false, prog: true, foot: true };
+const opts = { gm: false, cal: false, bop: false, pi: false, prog: true, foot: true, tpl: 'simple' };
+// Templates: 'simple' (rows above; scannable) and 'full' (the Excel chart: KG, plaque, BOP, CEJ-GM, PD, CAL on every
+// surface, contributing-factor checklist, portrait). Both build from the same keyed values (stash), so data entered
+// in one shows in the other and nothing is lost when switching.
+const isFull = () => opts.tpl === 'full';
 const EXTRAS = ['gm', 'cal', 'bop', 'pi'];
 const optCode = () => (opts.gm ? 1 : 0) | (opts.cal ? 2 : 0) | (opts.bop ? 4 : 0) | (opts.pi ? 8 : 0) | (opts.prog ? 0 : 16) | (opts.foot ? 0 : 32);
 const optCount = () => EXTRAS.filter(k => opts[k]).length;   // extra rows; they decide the page layout
 // Layout: portrait for 3+ extra rows (4 when Diagnosis & plan is hidden); compact landscape for 1-2 (3 without it);
 // without Diagnosis & plan, 1-2 extra rows keep the classic row sizes.
 function sheetMode() {
+  if (isFull()) return 'portrait';
   const n = optCount();
   if (n >= (opts.foot ? 3 : 4)) return 'portrait';
   if (!n || (!opts.foot && n <= 2)) return 'classic';
@@ -658,7 +714,27 @@ function surfaceRows(sub, surf) {
   return r;
 }
 // [label, sublabel, kind, edge, roots, view, surface]
+// Full template rows, in the Excel chart's order.
+const FULL_UPPER = [
+  ['Maxilla', '', 'teeth'],
+  ['KG', 'buccal', 'kg', '', '', '', 'UB'], ['Plaque', 'buccal', 'pi', '', '', '', 'UB'], ['BOP', 'buccal', 'bop', '', '', '', 'UB'],
+  ['CEJ–GM', 'buccal', 'gm', '', '', '', 'UB'], ['PD', 'buccal', 'pd', '', '', '', 'UB'], ['CAL', 'buccal', 'cal', '', '', '', 'UB'],
+  ['', 'buccal', 'img', '', 'up', 'b'], ['', 'palatal', 'img', '', 'down', 'p'],
+  ['CAL', 'palatal', 'cal', '', '', '', 'UP'], ['PD', 'palatal', 'pd', '', '', '', 'UP'], ['CEJ–GM', 'palatal', 'gm', '', '', '', 'UP'],
+  ['BOP', 'palatal', 'bop', '', '', '', 'UP'], ['Plaque', 'palatal', 'pi', '', '', '', 'UP'],
+  ['Maxilla', '', 'teeth'],
+];
+const FULL_LOWER = [
+  ['Mandible', '', 'teeth'],
+  ['Plaque', 'lingual', 'pi', '', '', '', 'LL'], ['BOP', 'lingual', 'bop', '', '', '', 'LL'], ['CEJ–GM', 'lingual', 'gm', '', '', '', 'LL'],
+  ['PD', 'lingual', 'pd', '', '', '', 'LL'], ['CAL', 'lingual', 'cal', '', '', '', 'LL'],
+  ['', 'lingual', 'img', '', 'up', 'l'], ['', 'buccal', 'img', '', 'down', 'b'],
+  ['CAL', 'buccal', 'cal', '', '', '', 'LB'], ['PD', 'buccal', 'pd', '', '', '', 'LB'], ['CEJ–GM', 'buccal', 'gm', '', '', '', 'LB'],
+  ['BOP', 'buccal', 'bop', '', '', '', 'LB'], ['Plaque', 'buccal', 'pi', '', '', '', 'LB'], ['KG', 'buccal', 'kg', '', '', '', 'LB'],
+  ['Mandible', '', 'teeth'],
+];
 function upperRows() {
+  if (isFull()) return edged(FULL_UPPER);
   return edged([
     ...(opts.prog ? [['Prognosis', '', 'prog']] : []),
     ['Mobility', '', 'mob'],
@@ -672,6 +748,7 @@ function upperRows() {
   ]);
 }
 function lowerRows() {
+  if (isFull()) return edged(FULL_LOWER);
   return edged([
     ['Furcation', 'lingual', 'furc1'],
     ...surfaceRows('lingual', 'LL'),
@@ -685,7 +762,7 @@ function lowerRows() {
   ]);
 }
 
-const INPUT_MODE = { pd: 'numeric', gm: 'text', bop: 'none', pi: 'none', cal: 'none' };
+const INPUT_MODE = { pd: 'numeric', kg: 'numeric', gm: 'text', bop: 'none', pi: 'none', cal: 'none' };
 const inp = (kind, extra = '') => `<input data-k="${kind}" inputmode="${INPUT_MODE[kind] || 'text'}" maxlength="${kind === 'furc' || kind === 'gm' ? 3 : 2}" autocomplete="off"${extra}>`;
 const sites = (kind, surf) => [0, 1, 2].map(n => inp(kind, ` data-surf="${surf}" data-site="${n}"` +
   (kind === 'cal' || kind === 'bop' || kind === 'pi' ? ' readonly' : '') + (kind === 'cal' ? ' tabindex="-1"' : ''))).join('');
@@ -694,7 +771,7 @@ function cellHTML(kind, t, surf) {
   switch (kind) {
     case 'mob':   return `<div class="boxes">${inp('mob')}</div>`;
     case 'prog':  return `<div class="boxes">${inp('prog')}</div>`;
-    case 'pd': case 'gm': case 'cal': case 'bop': case 'pi': return `<div class="boxes">${sites(kind, surf)}</div>`;
+    case 'pd': case 'kg': case 'gm': case 'cal': case 'bop': case 'pi': return `<div class="boxes">${sites(kind, surf)}</div>`;
     case 'furc1': return isMolar(t) ? `<div class="boxes">${inp('furc')}</div>` : '<div class="na"></div>';
     case 'furc2': {
       if (!isMolar(t)) return '<div class="na"></div>';
@@ -910,7 +987,7 @@ function restoreVals(vals) {
 function buildTable(id, teeth, rows) {
   const uni = document.getElementById('numbering').value === 'uni';
   let h = '<colgroup><col class="lbl">' + teeth.map(() => '<col>').join('') + '</colgroup>';
-  const ROW_CLASS = { pd: 'pd', img: 'img', teeth: 'teeth', gm: 'gm', cal: 'cal', bop: 'mark', pi: 'mark' };
+  const ROW_CLASS = { pd: 'pd', img: 'img', teeth: 'teeth', gm: 'gm', kg: 'gm', cal: 'cal', bop: 'mark', pi: 'mark' };
   for (const [label, sub, kind, edge, roots, view, surf] of rows) {
     h += `<tr class="${ROW_CLASS[kind] || ''} ${edge || ''}" data-kind="${kind}">`;
     h += `<td class="lbl">${label}${sub ? `<small>${sub}</small>` : ''}</td>`;
@@ -969,7 +1046,12 @@ function stretchSheet() {
   sheet.classList.remove('no-markers');
   const mm = px => px * 25.4 / 96;
   const target = PAGE_FILL[sheetMode() === 'portrait' ? 'portrait' : 'landscape'];
-  const spare = () => target - mm(sheet.querySelector('.scanbar').getBoundingClientRect().bottom - sheet.querySelector('header.top').getBoundingClientRect().top);
+  const end = () => {
+    const bar = sheet.querySelector('.scanbar');
+    if (getComputedStyle(bar).display !== 'none') return bar;
+    return [...sheet.children].filter(e => !e.classList.contains('inklayer') && e.getBoundingClientRect().height > 0).pop();
+  };
+  const spare = () => target - mm(end().getBoundingClientRect().bottom - sheet.querySelector('header.top').getBoundingClientRect().top);
   const rows = [...sheet.querySelectorAll('table.chart tr')].filter(tr => !tr.classList.contains('teeth'));   // tooth numbers stay as they are
   // Rows don't grow exactly as asked (borders, cell content), so correct over a few passes.
   for (let pass = 0, free = spare(); pass < 4 && free >= (pass ? .5 : 4); pass++, free = spare()) {
@@ -1007,8 +1089,13 @@ function summarize() {
   const allSites = (32 - missing.size) * 6;
   const pct = k => ins.filter(i => i.dataset.k === k && i.value === (k === 'bop' ? '+' : '✓')).length;
   const marked = k => ins.some(i => i.dataset.k === k && i.value);
-  if (opts.bop) set('sBOP', Math.round(pct('bop') / allSites * 100), marked('bop'));
-  if (opts.pi) set('sPI', Math.round(pct('pi') / allSites * 100), marked('pi'));
+  if (isFull()) {
+    const show = (id, k) => { document.getElementById(id).value = marked(k) ? Math.round(pct(k) / allSites * 100) + '%' : '—'; };
+    show('fBOP', 'bop'); show('fPI', 'pi');
+    document.getElementById('fTeeth').value = 32 - missing.size;
+  }
+  if (opts.bop || isFull()) set('sBOP', Math.round(pct('bop') / allSites * 100), marked('bop'));
+  if (opts.pi || isFull()) set('sPI', Math.round(pct('pi') / allSites * 100), marked('pi'));
   checkValues();
 }
 
@@ -1022,6 +1109,7 @@ function valueIssue(kind, v) {
   if (kind === 'pd' && +v > 15) return { cls: 'badval', tip: 'PD over 15 mm: check this value', key: 'pd' };
   if (kind === 'mob' && +v > 3) return { cls: 'badval', tip: 'Mobility is graded 0 to 3', key: 'mob' };
   if (kind === 'gm' && (isNaN(+v) || +v > 15 || +v < -5)) return { cls: 'badval', tip: 'CEJ–GM is usually between −5 and 15 mm', key: 'gm' };
+  if (kind === 'kg' && +v > 15) return { cls: 'badval', tip: 'KG width over 15 mm: check this value', key: 'kg' };
   if (kind === 'furc' && /\d/.test(v)) return { cls: 'numwarn', tip: FURC_TIP, key: 'furc' };
   return null;
 }
@@ -1031,7 +1119,7 @@ function markIssue(inp, issue) {
   inp.title = issue ? issue.tip : '';
 }
 function checkValues() {
-  const n = { pd: 0, mob: 0, furc: 0, gm: 0 };
+  const n = { pd: 0, mob: 0, furc: 0, gm: 0, kg: 0 };
   document.querySelectorAll('table.chart input').forEach(i => {
     const issue = i.closest('td.missing') ? null : valueIssue(i.dataset.k, i.value.trim());
     markIssue(i, issue);
@@ -1041,6 +1129,7 @@ function checkValues() {
   if (n.pd) parts.push(`${n.pd} PD over 15 mm`);
   if (n.mob) parts.push(`${n.mob} mobility over 3`);
   if (n.gm) parts.push(`${n.gm} CEJ–GM out of range`);
+  if (n.kg) parts.push(`${n.kg} KG over 15 mm`);
   if (n.furc) parts.push(`${n.furc} furcation written as ${n.furc === 1 ? 'a number' : 'numbers'} (use I, II or III)`);
   document.getElementById('valueWarn').hidden = !parts.length;
   document.getElementById('valueWarnText').textContent = parts.length ? 'Check: ' + parts.join(' · ') : '';
@@ -1062,7 +1151,7 @@ function styleInput(i) {
 document.addEventListener('input', e => {
   if (!e.target.matches('table.chart input')) return;
   const k = e.target.dataset.k, v = e.target.value;
-  if (k === 'pd') e.target.value = v.replace(/\D/g, '');
+  if (k === 'pd' || k === 'kg') e.target.value = v.replace(/\D/g, '');
   if (k === 'mob') e.target.value = v.replace(/\D/g, '').slice(0, 1);
   if (k === 'furc') e.target.value = v.toUpperCase().replace(/[^I1-3]/g, '');
   if (k === 'prog') e.target.value = v.toUpperCase().replace(/[^GFPQH]/g, '').slice(0, 1);
@@ -1108,6 +1197,12 @@ document.addEventListener('click', e => {
   const t = +td.dataset.t;
   missing.has(t) ? missing.delete(t) : missing.add(t);
   build();
+});
+
+// Contributing factors (Full template): typing details ticks the factor.
+document.addEventListener('input', e => {
+  const d = e.target.closest?.('input[data-fd]');
+  if (d && d.value.trim()) document.querySelector(`.sheet input[data-f="${d.dataset.fd}"]`).checked = true;
 });
 
 // Handwriting copied from a scan sits over its fields; typing in one of them replaces it.
@@ -1210,6 +1305,157 @@ const markersShown = () => !document.querySelector('.sheet').classList.contains(
 function setMarkers(on) {
   document.querySelector('.sheet').classList.toggle('no-markers', !on);
   document.getElementById('showMarkers').checked = on;
+}
+
+/* ---------- Excel export ----------
+   Fills templates/periodontal-chart-full.xlsx (or the user's own copy of it) by editing the sheet XML in
+   place, so the workbook's formatting, formulas, drawings and checkboxes stay exactly as they are.
+   templates/full-map.js (generated by tools/build_xlsx.py) says which cell each value goes to. */
+const XL_LIBS = ['https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js', 'templates/full-map.js'];
+let xlLibs = null;
+function loadXlLibs() {
+  xlLibs ||= XL_LIBS.reduce((p, src) => p.then(() => new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = src;
+    sc.onload = res;
+    sc.onerror = () => rej(new Error('Could not load the Excel tools (needs internet the first time).'));
+    document.head.appendChild(sc);
+  })), Promise.resolve());
+  xlLibs.catch(() => { xlLibs = null; });
+  return xlLibs;
+}
+const visitTicked = label => !!document.querySelector(`.sheet label.ck input`) &&
+  [...document.querySelectorAll('.sheet header label.ck')].some(l => l.textContent.trim() === label && l.querySelector('input').checked);
+function xlSheetChoice(v) {
+  document.querySelectorAll('#xlSheet button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+}
+document.getElementById('xlSheet').addEventListener('click', e => { const b = e.target.closest('button'); if (b) xlSheetChoice(b.dataset.v); });
+function toggleXlMenu(open) {
+  const menu = document.getElementById('xlMenu'), show = open ?? menu.hidden;
+  menu.hidden = !show;
+  document.getElementById('xlBtn').setAttribute('aria-expanded', String(show));
+  if (show) {
+    xlSheetChoice(visitTicked('Re-eval') || visitTicked('SPT') ? 'eva' : 'pre');   // follows the visit tick
+    const st = document.getElementById('xlStatus');
+    st.textContent = ''; st.className = 'xl-status';
+    loadXlLibs().catch(() => {});
+  }
+}
+document.addEventListener('click', e => { if (!e.target.closest('#xlWrap')) toggleXlMenu(false); });
+
+// Everything the workbook can hold, keyed by cell. Values come from the shared store, so rows hidden
+// in the current template are exported too.
+function xlValues(M) {
+  for (const i of document.querySelectorAll('table.chart input')) if (i.dataset.k !== 'cal') stash[i.dataset.key] = i.value;
+  const cells = {};
+  for (const [key, ref] of Object.entries(M.cells)) {
+    const [kind, , tooth] = key.split('.');
+    let v = missing.has(+tooth) ? '' : String(stash[key] ?? '').trim();
+    if (kind === 'bop') v = v === '+' ? '+' : v === '−' || v === '-' ? '-' : '';
+    else if (kind === 'pi') v = v ? '/' : '';
+    else if (v !== '' && !isNaN(+v)) v = +v;
+    cells[ref] = v;
+  }
+  for (const [name, ref] of Object.entries(M.header)) {
+    const v = (headerInput(name)?.value || '').trim();
+    cells[ref] = name === 'Age' && v !== '' && !isNaN(+v) ? +v : v;
+  }
+  for (const [label, ref] of Object.entries(M.visit)) cells[ref] = visitTicked(label);
+  for (const [id, ref] of Object.entries(M.factors)) cells[ref] = !!document.querySelector(`.sheet input[data-f="${id}"]`)?.checked;
+  for (const [id, ref] of Object.entries(M.factorDetails || {})) cells[ref] = (document.querySelector(`.sheet input[data-fd="${id}"]`)?.value || '').trim();
+  cells[M.teeth] = 32 - missing.size;
+  return cells;
+}
+
+async function xlSheetPath(zip, name) {
+  const wbx = await zip.file('xl/workbook.xml').async('string');
+  const rels = await zip.file('xl/_rels/workbook.xml.rels').async('string');
+  const sheet = [...wbx.matchAll(/<sheet\b[^>]*>/g)].map(m => m[0]).find(t => t.includes(`name="${name}"`));
+  if (!sheet) throw new Error(`This workbook has no "${name}" sheet. Use a workbook made from the full chart template.`);
+  const rid = sheet.match(/r:id="([^"]+)"/)[1];
+  const rel = [...rels.matchAll(/<Relationship\b[^>]*>/g)].map(m => m[0]).find(t => t.includes(`Id="${rid}"`));
+  const target = rel.match(/Target="([^"]+)"/)[1].replace(/^\/?(xl\/)?/, '');
+  return 'xl/' + target;
+}
+
+function xlSetCells(doc, values) {
+  const ns = doc.documentElement.namespaceURI, data = doc.getElementsByTagNameNS(ns, 'sheetData')[0];
+  const byRef = new Map([...doc.getElementsByTagNameNS(ns, 'c')].map(c => [c.getAttribute('r'), c]));
+  const colNum = ref => ref.match(/[A-Z]+/)[0].split('').reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0);
+  for (const [ref, v] of Object.entries(values)) {
+    let c = byRef.get(ref);
+    if (!c) {   // a cell the workbook doesn't store yet: add it to its row, in column order
+      const r = +ref.match(/\d+/)[0];
+      let row = [...data.children].find(x => +x.getAttribute('r') === r);
+      if (!row) {
+        row = doc.createElementNS(ns, 'row'); row.setAttribute('r', r);
+        data.insertBefore(row, [...data.children].find(x => +x.getAttribute('r') > r) || null);
+      }
+      c = doc.createElementNS(ns, 'c'); c.setAttribute('r', ref);
+      row.insertBefore(c, [...row.children].find(x => colNum(x.getAttribute('r')) > colNum(ref)) || null);
+    }
+    while (c.firstChild) c.removeChild(c.firstChild);
+    c.removeAttribute('t');
+    if (v === '' || v == null) continue;
+    if (typeof v === 'boolean') {
+      c.setAttribute('t', 'b');
+      c.appendChild(doc.createElementNS(ns, 'v')).textContent = v ? '1' : '0';
+    } else if (typeof v === 'number') {
+      c.appendChild(doc.createElementNS(ns, 'v')).textContent = String(v);
+    } else {
+      c.setAttribute('t', 'inlineStr');
+      const t = c.appendChild(doc.createElementNS(ns, 'is')).appendChild(doc.createElementNS(ns, 't'));
+      t.setAttribute('xml:space', 'preserve');
+      t.textContent = v;
+    }
+  }
+}
+
+async function xlCellText(zip, doc, ref) {
+  const ns = doc.documentElement.namespaceURI;
+  const c = [...doc.getElementsByTagNameNS(ns, 'c')].find(x => x.getAttribute('r') === ref);
+  if (!c) return '';
+  if (c.getAttribute('t') === 's') {
+    const ss = new DOMParser().parseFromString(await zip.file('xl/sharedStrings.xml').async('string'), 'application/xml');
+    return ss.getElementsByTagNameNS(ns, 'si')[+c.textContent]?.textContent || '';
+  }
+  return c.textContent;
+}
+
+// file: the user's own workbook to add to; otherwise a new workbook from the template.
+async function exportXlsx(file) {
+  const st = document.getElementById('xlStatus'), say = (t, err) => { st.textContent = t; st.className = 'xl-status' + (err ? ' err' : ''); };
+  say('Preparing…');
+  try {
+    await loadXlLibs();
+    const M = window.FULL_XLSX_MAP;
+    const pick = document.querySelector('#xlSheet button[aria-pressed=true]').dataset.v;
+    const src = file ? await file.arrayBuffer() : await (await fetch('templates/periodontal-chart-full.xlsx')).arrayBuffer();
+    let zip;
+    try { zip = await JSZip.loadAsync(src); }
+    catch (e) { throw new Error('That file isn’t an Excel workbook (.xlsx). Choose the chart workbook you exported before.'); }
+    const path = await xlSheetPath(zip, M.sheets[pick]);
+    const doc = new DOMParser().parseFromString(await zip.file(path).async('string'), 'application/xml');
+    if ((await xlCellText(zip, doc, M.idCell)) !== M.id) throw new Error('This workbook isn’t the full periodontal chart template. Use “New workbook” to start one.');
+    xlSetCells(doc, xlValues(M));
+    zip.file(path, new XMLSerializer().serializeToString(doc));
+    // Recalculate CAL, scores and Compare when Excel opens the file.
+    let wbx = await zip.file('xl/workbook.xml').async('string');
+    wbx = /<calcPr\b/.test(wbx) ? wbx.replace(/<calcPr\b([^>]*?)\s*(fullCalcOnLoad="[^"]*")?\s*\/>/, '<calcPr$1 fullCalcOnLoad="1"/>')
+                                 : wbx.replace('</workbook>', '<calcPr fullCalcOnLoad="1"/></workbook>');
+    zip.file('xl/workbook.xml', wbx);
+    const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', compression: 'DEFLATE' });
+    const name = file ? file.name : pdfName().replace(/\.pdf$/, '.xlsx');
+    if (window.__xlCapture) { window.__xlCapture(blob, name); }
+    else {
+      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: name });
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }
+    say(`Saved ${name} (${M.sheets[pick]} sheet).`);
+  } catch (e) {
+    say(e.message || String(e), true);
+  }
 }
 
 /* ---------- PDF export ----------
@@ -1332,20 +1578,28 @@ function applyOpts(next) {
   const sheet = document.querySelector('.sheet'), mode = sheetMode();
   sheet.classList.toggle('compact', mode === 'compact');
   sheet.classList.toggle('portrait', mode === 'portrait');
-  sheet.classList.toggle('has-bop', opts.bop);
-  sheet.classList.toggle('has-pi', opts.pi);
+  sheet.classList.toggle('full', isFull());
+  document.body.classList.toggle('tpl-full', isFull());
+  sheet.classList.toggle('has-bop', opts.bop || isFull());
+  sheet.classList.toggle('has-pi', opts.pi || isFull());
   sheet.classList.toggle('nofoot', !opts.foot);
-  sheet.classList.toggle('roomy', !opts.foot && !optCount());
+  sheet.classList.toggle('roomy', !opts.foot && !optCount() && !isFull());
   setLines('.dx', mode === 'compact' ? 2 : 3);
   // Contributing factors + treatment plan share the right box: same height as before (the heading costs one line).
   setLines('.cf', mode === 'compact' ? 1 : 2);
   setLines('.tx', mode === 'classic' ? 3 : 2);
   renderMarkers();
   document.querySelectorAll('[data-opt]').forEach(b => { b.checked = opts[b.dataset.opt]; });
-  const n = optCount();
+  const n = isFull() ? 0 : optCount();
+  document.getElementById('template').value = opts.tpl;
+  document.querySelectorAll('.appbar .seg[data-for=template] button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === opts.tpl)));
+  const scan = document.getElementById('scanBtn');
+  scan.disabled = isFull();
+  scan.title = isFull() ? 'Scanning uses the Simplified template' : '';
+  document.getElementById('showMarkers').disabled = isFull();
   document.getElementById('rowsCount').hidden = !n;
   document.getElementById('rowsCount').textContent = n;
-  try { localStorage.setItem('perio-rows', String(optCode())); } catch (e) {}
+  try { localStorage.setItem('perio-rows', String(optCode())); localStorage.setItem('perio-tpl', opts.tpl); } catch (e) {}
   build();
   setPrintPage();
   fitSheet();
@@ -1407,7 +1661,9 @@ setDefaults();
 // Rows: ?rows=<code> (used by the build tools) or what this device chose last time; classic by default.
 let startCode = +(new URLSearchParams(location.search).get('rows') ?? NaN);
 if (isNaN(startCode)) { try { startCode = +(localStorage.getItem('perio-rows') || 0); } catch (e) { startCode = 0; } }
-applyOpts(codeOpts(startCode || 0));
+let startTpl = 'simple';
+if (!new URLSearchParams(location.search).has('rows')) { try { startTpl = localStorage.getItem('perio-tpl') || 'simple'; } catch (e) {} }
+applyOpts({ ...codeOpts(startCode || 0), tpl: startTpl });
 
 /* ---------- autosave ----------
    The chart is saved in this browser as you work and restored when the page or the installed app is
@@ -1424,7 +1680,9 @@ function collectDraft() {
     missing: [...missing],
     values: Object.fromEntries(Object.entries(stash).filter(([, v]) => v)),
     header: Object.fromEntries([...document.querySelectorAll('.sheet header .field')].map(f => [f.querySelector('label').textContent, f.querySelector('input').value])),
-    checks: Object.fromEntries([...document.querySelectorAll('.sheet label.ck input')].map(i => [i.parentElement.textContent.trim(), i.checked])),
+    tpl: opts.tpl,
+    factorDetails: Object.fromEntries([...document.querySelectorAll('.sheet input[data-fd]')].map(i => [i.dataset.fd, i.value])),
+    checks: Object.fromEntries([...document.querySelectorAll('.sheet label.ck input, .sheet label.fk input')].map(i => [i.parentElement.textContent.trim(), i.checked])),
     lines: Object.fromEntries(['dx', 'cf', 'tx'].map(k => [k, [...document.querySelectorAll(`.${k} .wline`)].map(i => i.value)])),
     ink: [...document.querySelectorAll('#inkLayer img')].map(el => ({ key: el.dataset.key, src: el.src,
       x: parseFloat(el.style.left), y: parseFloat(el.style.top), w: parseFloat(el.style.width), h: parseFloat(el.style.height) })),
@@ -1433,7 +1691,7 @@ function collectDraft() {
 // Anything worth restoring (today's date alone isn't).
 const draftHasData = d => Object.keys(d.values).length || d.missing.length || d.ink.length ||
   Object.entries(d.header).some(([k, v]) => v && k !== 'Date') || Object.values(d.checks).some(Boolean) ||
-  Object.values(d.lines).flat().some(Boolean);
+  Object.values(d.lines).flat().some(Boolean) || Object.values(d.factorDetails || {}).some(Boolean);
 
 function saveDraftNow() {
   if (draftOff || restoring) return;
@@ -1463,12 +1721,13 @@ function restoreDraft() {
   d.missing.forEach(t => missing.add(t));
   document.getElementById('numbering').value = d.numbering || 'fdi';
   document.getElementById('upper').innerHTML = document.getElementById('lower').innerHTML = '';   // build() fills from the stash
-  applyOpts(codeOpts(d.rows || 0));
+  applyOpts({ ...codeOpts(d.rows || 0), tpl: d.tpl || 'simple' });
   document.querySelectorAll('.sheet header .field').forEach(f => {
     const v = d.header[f.querySelector('label').textContent];
     if (v != null) f.querySelector('input').value = v;
   });
-  document.querySelectorAll('.sheet label.ck input').forEach(i => { i.checked = !!d.checks[i.parentElement.textContent.trim()]; });
+  document.querySelectorAll('.sheet label.ck input, .sheet label.fk input').forEach(i => { i.checked = !!d.checks[i.parentElement.textContent.trim()]; });
+  document.querySelectorAll('.sheet input[data-fd]').forEach(i => { i.value = d.factorDetails?.[i.dataset.fd] || ''; });
   for (const k of ['dx', 'cf', 'tx']) if (d.lines[k]) putLines([...document.querySelectorAll(`.${k} .wline`)], d.lines[k]);
   d.ink.forEach(img => setHandwriting(img.key, img));
   setMarkers(d.markers !== false);
