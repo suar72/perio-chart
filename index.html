@@ -109,6 +109,13 @@
   .switch.row:hover { background: var(--ui-fill-2); }
   .switch.row small { display: block; color: var(--ui-sub); font-size: 11.5px; }
   .pop-note { margin: 6px 10px 2px; font-size: 12px; color: var(--ui-sub); }
+  .tooth-menu { position: fixed; top: 0; left: 0; width: 190px; z-index: 40; }
+  .tooth-menu button { display: flex; align-items: baseline; gap: 6px; width: 100%; padding: 8px 10px 8px 30px; border: 0; border-radius: 8px;
+    background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; position: relative; }
+  .tooth-menu button small { color: var(--ui-sub); font-size: 11.5px; }
+  .tooth-menu button:hover, .tooth-menu button:focus-visible { background: var(--ui-fill-2); outline: none; }
+  .tooth-menu button[aria-checked=true]::before { content: "✓"; position: absolute; left: 11px; color: var(--ui-accent); font-weight: 700; }
+  @media print { .tooth-menu { display: none !important; } }
   .notice { max-width: 1240px; margin: 0 auto; padding: 0 16px 10px; display: flex; }
   .notice > div { display: inline-flex; align-items: center; gap: 10px; padding: 6px 6px 6px 12px; border-radius: 10px;
     background: var(--ui-amber-bg); color: var(--ui-amber); font: 500 13px/1.3 var(--ui-font); }
@@ -186,6 +193,9 @@
   tr.img .detail { fill: none; stroke: #858585; stroke-width: .5; }
   tr.img .root-detail { fill: none; stroke: #858585; stroke-width: .5; }
   tr.img .landmark { fill: none; stroke: #555; stroke-width: .75; }
+  tr.img .fixture { fill: #e2e2e6; }
+  tr.img .abutment { fill: #f1f1f3; }
+  tr.img .thread { fill: none; stroke: #8a8a90; stroke-width: .5; }
   tr.img .guide { stroke: #a8a8a8; stroke-width: .5; stroke-dasharray: 2 2; vector-effect: non-scaling-stroke; }
   tr.img td.missing .tooth-svg { opacity: .3; }
   tr.teeth td { height: 5.6mm; background: #f4f4f4; text-align: center; font-weight: 800; font-size: 12px;
@@ -216,6 +226,7 @@
   .jaw .xout line { stroke: #111; stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linecap: round; }
   td.missing input { visibility: hidden; }
   tr.teeth td.missing { color: #999; text-decoration: line-through; }
+  tr.teeth td.implant::after { content: "i"; margin-left: .5mm; font-size: 8px; font-weight: 700; color: #0a66d6; vertical-align: super; }
 
   .gap { height: 1.8mm; }
 
@@ -508,7 +519,13 @@
   <option value="fdi">FDI (11–48)</option>
   <option value="uni">Universal (1–32)</option>
 </select>
-<p class="page-hint">Tap a tooth number to mark it missing. Empty boxes print blank.</p>
+<p class="page-hint">Tap a tooth number to mark it missing or an implant. Empty boxes print blank.</p>
+<div class="popover tooth-menu" id="toothMenu" role="menu" hidden>
+  <p class="pop-title">Tooth</p>
+  <button type="button" role="menuitemradio" data-state="present">Present</button>
+  <button type="button" role="menuitemradio" data-state="missing">Missing <small>crossed out</small></button>
+  <button type="button" role="menuitemradio" data-state="implant">Implant</button>
+</div>
 
 <main class="desk">
 <div class="sheet">
@@ -772,9 +789,9 @@ function cellHTML(kind, t, surf) {
     case 'mob':   return `<div class="boxes">${inp('mob')}</div>`;
     case 'prog':  return `<div class="boxes">${inp('prog')}</div>`;
     case 'pd': case 'kg': case 'gm': case 'cal': case 'bop': case 'pi': return `<div class="boxes">${sites(kind, surf)}</div>`;
-    case 'furc1': return isMolar(t) ? `<div class="boxes">${inp('furc')}</div>` : '<div class="na"></div>';
+    case 'furc1': return isMolar(t) && !implants.has(t) ? `<div class="boxes">${inp('furc')}</div>` : '<div class="na"></div>';
     case 'furc2': {
-      if (!isMolar(t)) return '<div class="na"></div>';
+      if (!isMolar(t) || implants.has(t)) return '<div class="na"></div>';   // no furcation on an implant
       const [a, b] = isRightSide(t) ? ['DP', 'MP'] : ['MP', 'DP'];
       return `<div class="boxes"><div class="sub" data-s="${a}">${inp('furc')}</div><div class="sub" data-s="${b}">${inp('furc')}</div></div>`;
     }
@@ -946,8 +963,23 @@ const toothParts = (() => {
     return out;
   }
 
-  return function toothParts(t, view) {
+  // Implant: an abutment and a tapered, threaded fixture in place of the root(s).
+  function fixture(s) {
+    const top = y - .9, len = Math.min(s.R * .78, 11.5), hw = Math.min(Math.max(s.cw * .36, 1.7), 2.6);
+    const n = Math.max(4, Math.round(len / 1.45)), pitch = len / n, half = k => hw * (1 - .28 * k / n);
+    const side = [[hw, top]];
+    for (let k = 0; k < n; k++) side.push([half(k) + .45, top - (k + .45) * pitch], [half(k + 1), top - (k + 1) * pitch]);
+    const end = top - len, last = half(n);
+    const body = 'M' + side.map(([x, yy]) => p(x, yy)).join(' L') + ` Q${p(0, end - .9)} ${p(-last, end)} L` +
+      side.slice().reverse().map(([x, yy]) => p(-x, yy)).join(' L') + 'Z';
+    const threads = Array.from({ length: n - 1 }, (_, k) => `M${p(-half(k + 1), top - (k + 1) * pitch)} L${p(half(k + 1), top - (k + .55) * pitch)}`).join(' ');
+    return [part('fixture', body), part('thread', threads),
+      part('abutment', `M${p(-hw, top)} L${p(-hw * .72, y + 1.6)} L${p(hw * .72, y + 1.6)} L${p(hw, top)}Z`)];
+  }
+
+  return function toothParts(t, view, implant) {
     const up = Math.floor(t / 10) <= 2, u = t % 10, s = (up ? upper : lower)[u], ling = view !== 'b';
+    if (implant) return [...fixture(s), ...toothParts(t, view).filter(([cls]) => !['root', 'root-detail', 'behind'].includes(cls))];
     if (u >= 6) {
       const roots = u === 8 ? thirdMolarRoot(s, up, ling)
         : up && ling ? [part('behind', buccalRoots(s, up, u)), palatalRoot(s, true)]
@@ -959,12 +991,12 @@ const toothParts = (() => {
   };
 })();
 
-function toothSVG(t, roots, view) {
+function toothSVG(t, roots, view, implant = implants.has(t)) {
   const sx = (isRightSide(t) ? 1 : -1) * X_STRETCH;     // mesial always faces the midline
   const tf = roots === 'down'
     ? `translate(${VB_W / 2} ${VB_H}) scale(${sx} -1)`
     : `translate(${VB_W / 2} 0) scale(${sx} 1)`;
-  const parts = toothParts(t, view), id = `cr${t}${view}`;
+  const parts = toothParts(t, view, implant), id = `cr${t}${view}${implant ? 'i' : ''}`;
   const crown = parts.find(([cls]) => cls === 'crown')[1];
   const paths = `<clipPath id="${id}"><path d="${crown}"/></clipPath>` +
     parts.map(([cls, d]) => `<path class="${cls}" d="${d}"${['detail', 'landmark'].includes(cls) ? ` clip-path="url(#${id})"` : ''}/>`).join('');
@@ -978,7 +1010,7 @@ function toothSVG(t, roots, view) {
 }
 
 /* ---------- table ---------- */
-const missing = new Set();
+const missing = new Set(), implants = new Set();
 const saveVals = () => [...document.querySelectorAll('table.chart input')].map(i => i.value);
 function restoreVals(vals) {
   document.querySelectorAll('table.chart input').forEach((i, k) => { i.value = vals[k] ?? ''; });
@@ -992,7 +1024,7 @@ function buildTable(id, teeth, rows) {
     h += `<tr class="${ROW_CLASS[kind] || ''} ${edge || ''}" data-kind="${kind}">`;
     h += `<td class="lbl">${label}${sub ? `<small>${sub}</small>` : ''}</td>`;
     teeth.forEach((t, i) => {
-      const cls = [i === 8 ? 'mid' : '', missing.has(t) ? 'missing' : ''].join(' ');
+      const cls = [i === 8 ? 'mid' : '', missing.has(t) ? 'missing' : '', implants.has(t) && !missing.has(t) ? 'implant' : ''].join(' ');
       const inner = kind === 'teeth' ? (uni ? universal(t) : t)
                   : kind === 'img' ? toothSVG(t, roots, view)
                   : cellHTML(kind, t, surf);
@@ -1191,13 +1223,36 @@ document.addEventListener('keydown', e => {
   all[all.indexOf(e.target) + (e.shiftKey ? -1 : 1)]?.focus();
 });
 
-document.addEventListener('click', e => {
-  const td = e.target.closest('tr.teeth td[data-t], tr.img td[data-t]');
-  if (!td) return;
-  const t = +td.dataset.t;
-  missing.has(t) ? missing.delete(t) : missing.add(t);
+// Tap a tooth number or drawing: a small menu to mark it present, missing or an implant.
+const toothState = t => missing.has(t) ? 'missing' : implants.has(t) ? 'implant' : 'present';
+function setToothState(t, state) {
+  missing.delete(t); implants.delete(t);
+  if (state === 'missing') missing.add(t);
+  if (state === 'implant') implants.add(t);
   build();
+}
+function closeToothMenu() { document.getElementById('toothMenu').hidden = true; }
+function openToothMenu(t, td) {
+  const m = document.getElementById('toothMenu'), uni = document.getElementById('numbering').value === 'uni';
+  m.querySelector('.pop-title').textContent = 'Tooth ' + (uni ? universal(t) : t);
+  m.querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', b.dataset.state === toothState(t)));
+  m.dataset.t = t;
+  m.hidden = false;
+  const r = td.getBoundingClientRect(), w = m.offsetWidth, h = m.offsetHeight;
+  m.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+  m.style.top = (r.bottom + 6 + h > innerHeight - 8 ? Math.max(8, r.top - h - 6) : r.bottom + 6) + 'px';
+  m.querySelector('[aria-checked=true]').focus();
+}
+document.addEventListener('click', e => {
+  const pick = e.target.closest('#toothMenu button');
+  if (pick) { setToothState(+document.getElementById('toothMenu').dataset.t, pick.dataset.state); closeToothMenu(); return; }
+  if (e.target.closest('#toothMenu')) return;
+  const td = e.target.closest('tr.teeth td[data-t], tr.img td[data-t]');
+  if (td) openToothMenu(+td.dataset.t, td); else closeToothMenu();
 });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeToothMenu(); });
+addEventListener('scroll', closeToothMenu, true);
+addEventListener('resize', closeToothMenu);
 
 // Contributing factors (Full template): typing details ticks the factor.
 document.addEventListener('input', e => {
@@ -1258,7 +1313,7 @@ function clearAll() {
   if (!confirm('Clear every field on the chart?')) return;
   document.getElementById('inkLayer').innerHTML = '';
   for (const k in stash) delete stash[k];
-  missing.clear();
+  missing.clear(); implants.clear();
   document.querySelectorAll('.sheet input').forEach(i => {
     if (i.type === 'checkbox') i.checked = false; else i.value = '';
   });
@@ -1364,8 +1419,55 @@ function xlValues(M) {
   for (const [id, ref] of Object.entries(M.factors)) cells[ref] = !!document.querySelector(`.sheet input[data-f="${id}"]`)?.checked;
   for (const [id, ref] of Object.entries(M.factorDetails || {})) cells[ref] = (document.querySelector(`.sheet input[data-fd="${id}"]`)?.value || '').trim();
   // Missing teeth: X under the tooth (the workbook hatches its columns and counts teeth present)
-  for (const [t, ref] of Object.entries(M.missing)) cells[ref] = missing.has(+t) ? 'X' : '';
+  for (const [t, ref] of Object.entries(M.missing)) cells[ref] = missing.has(+t) ? 'X' : implants.has(+t) ? 'I' : '';
   return cells;
+}
+
+// Implants: swap the tooth's pictures ("Tooth 16 buccal", one per tooth and view) for the implant drawing,
+// and back to the natural tooth when it is no longer an implant. A picture changed by hand in Excel is
+// replaced only when the tooth is an implant.
+async function xlSetPictures(zip, sheetPath) {
+  const name = sheetPath.split('/').pop(), parse = x => new DOMParser().parseFromString(x, 'application/xml');
+  const srels = await zip.file(`xl/worksheets/_rels/${name}.rels`)?.async('string');
+  const dname = srels?.match(/Target="[^"]*drawings\/([^"/]+)"/)?.[1];
+  if (!dname) return;
+  const dpath = `xl/drawings/${dname}`, rpath = `xl/drawings/_rels/${dname}.rels`;
+  const doc = parse(await zip.file(dpath).async('string')), rels = parse(await zip.file(rpath).async('string'));
+  const R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships', RELS = 'http://schemas.openxmlformats.org/package/2006/relationships';
+  const relList = () => [...rels.getElementsByTagNameNS(RELS, 'Relationship')];
+  const VIEW = { buccal: 'b', palatal: 'p', lingual: 'l' };
+  let changed = false;
+  for (const pr of [...doc.getElementsByTagNameNS('*', 'cNvPr')]) {
+    const m = pr.getAttribute('name')?.match(/^Tooth (\d\d) (buccal|palatal|lingual)$/);
+    let pic = pr; while (pic && pic.localName !== 'pic') pic = pic.parentNode;
+    const blip = pic?.getElementsByTagNameNS('*', 'blip')[0];
+    if (!m || !blip) continue;
+    const t = +m[1], v = VIEW[m[2]], implant = implants.has(t) && !missing.has(t);
+    const target = relList().find(r => r.getAttribute('Id') === blip.getAttributeNS(R, 'embed'))?.getAttribute('Target') || '';
+    const isImplant = /\/implant-/.test(target);
+    if (implant === isImplant) continue;
+    const file = `${implant ? 'implant' : 'tooth'}-${t}-${v}.png`;
+    if (!zip.file(`xl/media/${file}`)) {
+      const res = await fetch(`templates/${implant ? 'implants' : 'teeth'}/${t}-${v}.png`);
+      if (!res.ok) throw new Error('Couldn’t load the tooth drawings. Check the connection and try again.');
+      zip.file(`xl/media/${file}`, await res.arrayBuffer());
+    }
+    let rel = relList().find(r => r.getAttribute('Target').endsWith(`/media/${file}`));
+    if (!rel) {
+      rel = rels.createElementNS(RELS, 'Relationship');
+      rel.setAttribute('Id', 'rIdTooth' + file.replace(/\W/g, ''));
+      rel.setAttribute('Type', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image');
+      rel.setAttribute('Target', `../media/${file}`);
+      rels.documentElement.appendChild(rel);
+    }
+    blip.setAttributeNS(R, 'r:embed', rel.getAttribute('Id'));
+    changed = true;
+  }
+  if (!changed) return;
+  zip.file(dpath, new XMLSerializer().serializeToString(doc));
+  zip.file(rpath, new XMLSerializer().serializeToString(rels));
+  const ct = await zip.file('[Content_Types].xml').async('string');
+  if (!/Extension="png"/i.test(ct)) zip.file('[Content_Types].xml', ct.replace('</Types>', '<Default Extension="png" ContentType="image/png"/></Types>'));
 }
 
 async function xlSheetPath(zip, name) {
@@ -1444,6 +1546,7 @@ async function exportXlsx(file) {
     } else if (id !== M.id) throw new Error('This workbook isn’t the full periodontal chart template. Use “New workbook” to start one.');
     xlSetCells(doc, values);
     zip.file(path, new XMLSerializer().serializeToString(doc));
+    await xlSetPictures(zip, path);
     // Recalculate CAL, scores and Compare when Excel opens the file.
     let wbx = await zip.file('xl/workbook.xml').async('string');
     wbx = /<calcPr\b/.test(wbx) ? wbx.replace(/<calcPr\b([^>]*?)\s*(fullCalcOnLoad="[^"]*")?\s*\/>/, '<calcPr$1 fullCalcOnLoad="1"/>')
@@ -1683,6 +1786,7 @@ function collectDraft() {
   return {
     v: 1, savedAt: Date.now(), rows: optCode(), numbering: document.getElementById('numbering').value, markers: markersShown(),
     missing: [...missing],
+    implants: [...implants],
     values: Object.fromEntries(Object.entries(stash).filter(([, v]) => v)),
     header: Object.fromEntries([...document.querySelectorAll('.sheet header .field')].map(f => [f.querySelector('label').textContent, f.querySelector('input').value])),
     tpl: opts.tpl,
@@ -1694,7 +1798,7 @@ function collectDraft() {
   };
 }
 // Anything worth restoring (today's date alone isn't).
-const draftHasData = d => Object.keys(d.values).length || d.missing.length || d.ink.length ||
+const draftHasData = d => Object.keys(d.values).length || d.missing.length || d.implants?.length || d.ink.length ||
   Object.entries(d.header).some(([k, v]) => v && k !== 'Date') || Object.values(d.checks).some(Boolean) ||
   Object.values(d.lines).flat().some(Boolean) || Object.values(d.factorDetails || {}).some(Boolean);
 
@@ -1722,8 +1826,9 @@ function restoreDraft() {
   restoring = true;
   for (const k in stash) delete stash[k];
   Object.assign(stash, d.values);
-  missing.clear();
+  missing.clear(); implants.clear();
   d.missing.forEach(t => missing.add(t));
+  (d.implants || []).forEach(t => implants.add(t));
   document.getElementById('numbering').value = d.numbering || 'fdi';
   document.getElementById('upper').innerHTML = document.getElementById('lower').innerHTML = '';   // build() fills from the stash
   applyOpts({ ...codeOpts(d.rows || 0), tpl: d.tpl || 'simple' });
