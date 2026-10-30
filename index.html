@@ -1363,7 +1363,8 @@ function xlValues(M) {
   for (const [label, ref] of Object.entries(M.visit)) cells[ref] = visitTicked(label);
   for (const [id, ref] of Object.entries(M.factors)) cells[ref] = !!document.querySelector(`.sheet input[data-f="${id}"]`)?.checked;
   for (const [id, ref] of Object.entries(M.factorDetails || {})) cells[ref] = (document.querySelector(`.sheet input[data-fd="${id}"]`)?.value || '').trim();
-  cells[M.teeth] = 32 - missing.size;
+  // Missing teeth: X under the tooth (the workbook hatches its columns and counts teeth present)
+  for (const [t, ref] of Object.entries(M.missing)) cells[ref] = missing.has(+t) ? 'X' : '';
   return cells;
 }
 
@@ -1436,8 +1437,12 @@ async function exportXlsx(file) {
     catch (e) { throw new Error('That file isn’t an Excel workbook (.xlsx). Choose the chart workbook you exported before.'); }
     const path = await xlSheetPath(zip, M.sheets[pick]);
     const doc = new DOMParser().parseFromString(await zip.file(path).async('string'), 'application/xml');
-    if ((await xlCellText(zip, doc, M.idCell)) !== M.id) throw new Error('This workbook isn’t the full periodontal chart template. Use “New workbook” to start one.');
-    xlSetCells(doc, xlValues(M));
+    const id = await xlCellText(zip, doc, M.idCell), values = xlValues(M);
+    if (id === 'perio-chart-template:2') {   // workbook from before the missing-teeth rows: teeth present was typed in AV3
+      for (const ref of Object.values(M.missing)) delete values[ref];
+      values.AV3 = 32 - missing.size;
+    } else if (id !== M.id) throw new Error('This workbook isn’t the full periodontal chart template. Use “New workbook” to start one.');
+    xlSetCells(doc, values);
     zip.file(path, new XMLSerializer().serializeToString(doc));
     // Recalculate CAL, scores and Compare when Excel opens the file.
     let wbx = await zip.file('xl/workbook.xml').async('string');
