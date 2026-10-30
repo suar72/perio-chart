@@ -109,7 +109,7 @@
   .switch.row:hover { background: var(--ui-fill-2); }
   .switch.row small { display: block; color: var(--ui-sub); font-size: 11.5px; }
   .pop-note { margin: 6px 10px 2px; font-size: 12px; color: var(--ui-sub); }
-  .tooth-menu { position: fixed; top: 0; left: 0; width: 190px; z-index: 40; }
+  .tooth-menu { position: fixed; top: 0; left: 0; width: 190px; z-index: 40; transform-origin: top left; animation: none; }
   .tooth-menu button { display: flex; align-items: baseline; gap: 6px; width: 100%; padding: 8px 10px 8px 30px; border: 0; border-radius: 8px;
     background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; position: relative; }
   .tooth-menu button small { color: var(--ui-sub); font-size: 11.5px; }
@@ -1238,10 +1238,18 @@ function openToothMenu(t, td) {
   m.querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', b.dataset.state === toothState(t)));
   m.dataset.t = t;
   m.hidden = false;
-  const r = td.getBoundingClientRect(), w = m.offsetWidth, h = m.offsetHeight;
-  m.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
-  m.style.top = (r.bottom + 6 + h > innerHeight - 8 ? Math.max(8, r.top - h - 6) : r.bottom + 6) + 'px';
-  m.querySelector('[aria-checked=true]').focus();
+  // Place it inside the visible part of the page: on a phone that is often pinch-zoomed in, so use the visual
+  // viewport and undo the zoom so the menu keeps its normal size.
+  const vv = window.visualViewport || { offsetLeft: 0, offsetTop: 0, width: innerWidth, height: innerHeight, scale: 1 };
+  const k = 1 / (vv.scale || 1), gap = 8 * k;
+  const r = td.getBoundingClientRect(), w = m.offsetWidth * k, h = m.offsetHeight * k;
+  const minX = vv.offsetLeft + gap, maxX = vv.offsetLeft + vv.width - w - gap;
+  const minY = vv.offsetTop + gap, maxY = vv.offsetTop + vv.height - h - gap;
+  const below = r.bottom + 6 * k, above = r.top - h - 6 * k;
+  m.style.transform = k === 1 ? '' : `scale(${k})`;
+  m.style.left = Math.max(minX, Math.min(maxX, r.left + r.width / 2 - w / 2)) + 'px';
+  m.style.top = Math.max(minY, Math.min(maxY, below <= maxY ? below : above >= minY ? above : maxY)) + 'px';
+  m.querySelector('[aria-checked=true]').focus({ preventScroll: true });
 }
 document.addEventListener('click', e => {
   const pick = e.target.closest('#toothMenu button');
@@ -1253,6 +1261,7 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeToothMenu(); });
 addEventListener('scroll', closeToothMenu, true);
 addEventListener('resize', closeToothMenu);
+window.visualViewport?.addEventListener('resize', () => { if (!document.getElementById('toothMenu').hidden) closeToothMenu(); });
 
 // Contributing factors (Full template): typing details ticks the factor.
 document.addEventListener('input', e => {
