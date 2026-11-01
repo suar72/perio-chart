@@ -1861,7 +1861,7 @@ function restoreDraft() {
 if (!draftOff) restoreDraft();
 
 // App-bar segmented controls drive the (hidden) selects the rest of the page reads.
-document.querySelectorAll('.appbar .seg').forEach(seg => {
+document.querySelectorAll('.appbar .seg[data-for]').forEach(seg => {   // the Excel menu's sheet picker has its own handler
   const sel = document.getElementById(seg.dataset.for);
   const sync = () => seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === sel.value)));
   seg.addEventListener('click', e => {
