@@ -1413,8 +1413,10 @@ function xlValues(M) {
   for (const i of document.querySelectorAll('table.chart input')) if (i.dataset.k !== 'cal') stash[i.dataset.key] = i.value;
   const cells = {};
   for (const [key, ref] of Object.entries(M.cells)) {
-    const [kind, , tooth] = key.split('.');
+    const [kind, surf, tooth, n] = key.split('.');
     let v = missing.has(+tooth) ? '' : String(stash[key] ?? '').trim();
+    // KG is one merged cell per tooth and side in the workbook: the first value typed in any of its three boxes goes in site 0
+    if (kind === 'kg') v = n !== '0' || missing.has(+tooth) ? '' : [0, 1, 2].map(s => String(stash[`kg.${surf}.${tooth}.${s}`] ?? '').trim()).find(x => x) || '';
     if (kind === 'bop') v = v === '+' ? '+' : v === '−' || v === '-' ? '-' : '';
     else if (kind === 'pi') v = v ? '/' : '';
     else if (v !== '' && !isNaN(+v)) v = +v;
