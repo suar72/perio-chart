@@ -1481,6 +1481,51 @@ async function xlSetPictures(zip, sheetPath) {
   if (!/Extension="png"/i.test(ct)) zip.file('[Content_Types].xml', ct.replace('</Types>', '<Default Extension="png" ContentType="image/png"/></Types>'));
 }
 
+// Missing teeth: an X (two black lines) through the tooth's whole jaw column, like the crossed-out column on the
+// chart. Drawn as shapes named "Missing <t> a|b"; earlier ones are removed first, so the crosses follow `gone`.
+async function xlSetCrosses(zip, sheetPath, gone) {
+  const name = sheetPath.split('/').pop();
+  const srels = await zip.file(`xl/worksheets/_rels/${name}.rels`)?.async('string');
+  const dname = srels?.match(/Target="[^"]*drawings\/([^"/]+)"/)?.[1];
+  if (!dname) return;
+  const dpath = `xl/drawings/${dname}`;
+  const doc = new DOMParser().parseFromString(await zip.file(dpath).async('string'), 'application/xml');
+  const XDR = 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing', A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+  const root = doc.documentElement;
+  for (const pr of [...doc.getElementsByTagNameNS(XDR, 'cNvPr')]) {
+    if (!/^Missing /.test(pr.getAttribute('name') || '')) continue;
+    let anc = pr; while (anc && anc.parentNode !== root) anc = anc.parentNode;
+    if (anc) root.removeChild(anc);
+  }
+  let id = Math.max(0, ...[...doc.getElementsByTagNameNS(XDR, 'cNvPr')].map(e => +e.getAttribute('id') || 0)) + 1;
+  const el = (ns, tag, attrs = {}, parent) => {
+    const e = doc.createElementNS(ns, (ns === A ? 'a:' : root.prefix ? root.prefix + ':' : '') + tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+  // [teeth, first row, end row] (0-based: rows 9-28 upper, 31-50 lower); a tooth's sites start at column C (index 2)
+  for (const [teeth, r0, r1] of [[UPPER, 8, 28], [LOWER, 30, 50]]) teeth.forEach((t, i) => {
+    if (!gone.has(t)) return;
+    for (const flip of [false, true]) {
+      const anc = el(XDR, 'twoCellAnchor', {}, root);
+      for (const [tag, c, r] of [['from', 2 + 3 * i, r0], ['to', 5 + 3 * i, r1]]) {
+        const p = el(XDR, tag, {}, anc);
+        el(XDR, 'col', {}, p).textContent = c; el(XDR, 'colOff', {}, p).textContent = 0;
+        el(XDR, 'row', {}, p).textContent = r; el(XDR, 'rowOff', {}, p).textContent = 0;
+      }
+      const sp = el(XDR, 'cxnSp', { macro: '' }, anc), nv = el(XDR, 'nvCxnSpPr', {}, sp);
+      el(XDR, 'cNvPr', { id: id++, name: `Missing ${t} ${flip ? 'b' : 'a'}` }, nv); el(XDR, 'cNvCxnSpPr', {}, nv);
+      const pr = el(XDR, 'spPr', {}, sp), xf = el(A, 'xfrm', flip ? { flipH: '1' } : {}, pr);
+      el(A, 'off', { x: 0, y: 0 }, xf); el(A, 'ext', { cx: 0, cy: 0 }, xf);
+      el(A, 'avLst', {}, el(A, 'prstGeom', { prst: 'line' }, pr));
+      el(A, 'srgbClr', { val: '111111' }, el(A, 'solidFill', {}, el(A, 'ln', { w: 25400, cap: 'rnd' }, pr)));
+      el(XDR, 'clientData', {}, anc);
+    }
+  });
+  zip.file(dpath, new XMLSerializer().serializeToString(doc));
+}
+
 async function xlSheetPath(zip, name) {
   const wbx = await zip.file('xl/workbook.xml').async('string');
   const rels = await zip.file('xl/_rels/workbook.xml.rels').async('string');
@@ -1558,6 +1603,15 @@ async function exportXlsx(file) {
     xlSetCells(doc, values);
     zip.file(path, new XMLSerializer().serializeToString(doc));
     await xlSetPictures(zip, path);
+    await xlSetCrosses(zip, path, missing);
+    // The Compare sheet reads its missing teeth from Eva: cross the same teeth there
+    if (pick === 'eva') {
+      const wbx = await zip.file('xl/workbook.xml').async('string');
+      for (const [, cname] of wbx.matchAll(/<sheet\b[^>]*name="(Compare[^"]*)"/g)) {
+        const cpath = await xlSheetPath(zip, cname);
+        if ((await zip.file(cpath).async('string')).includes('Eva!C54')) await xlSetCrosses(zip, cpath, missing);
+      }
+    }
     // Recalculate CAL, scores and Compare when Excel opens the file.
     let wbx = await zip.file('xl/workbook.xml').async('string');
     wbx = /<calcPr\b/.test(wbx) ? wbx.replace(/<calcPr\b([^>]*?)\s*(fullCalcOnLoad="[^"]*")?\s*\/>/, '<calcPr$1 fullCalcOnLoad="1"/>')
