@@ -1907,6 +1907,35 @@ function inlineSvgLook(doc) {
   }));
 }
 
+// html2canvas draws a text box's value at its top and tick boxes gray. In its copy of the page, swap every box for a
+// plain element with the same size, font, borders and alignment (text centred vertically, as on screen).
+function flatInputs(doc) {
+  const win = doc.defaultView;
+  doc.querySelectorAll('.sheet input').forEach(inp => {
+    const cs = win.getComputedStyle(inp), el = doc.createElement('span');
+    const keep = ['width', 'height', 'margin', 'padding', 'borderTop', 'borderRight', 'borderBottom', 'borderLeft', 'borderRadius',
+      'backgroundColor', 'backgroundImage', 'color', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'verticalAlign', 'flex'];
+    for (const k of keep) el.style[k] = cs[k];
+    el.style.boxSizing = 'border-box';
+    el.style.display = cs.display === 'block' ? 'flex' : 'inline-flex';
+    el.style.alignItems = 'center';
+    el.style.overflow = 'hidden';
+    el.style.whiteSpace = 'nowrap';
+    if (inp.type === 'checkbox') {
+      Object.assign(el.style, { justifyContent: 'center', border: '1.2px solid #8e8e93', borderRadius: '3px', background: '#fff',
+        color: '#111', fontSize: parseFloat(cs.height) * .8 + 'px', fontWeight: '700', lineHeight: '1' });
+      el.textContent = inp.checked ? '✓' : '';
+    } else {
+      el.style.justifyContent = { center: 'center', right: 'flex-end', end: 'flex-end' }[cs.textAlign] || 'flex-start';
+      el.textContent = inp.value;
+      // the DP / MP furcation boxes are only as tall as their text; let the value fill the cell (PDF copy only:
+      // the scanner's layout measures the real boxes)
+      if (inp.parentElement.classList.contains('sub')) { inp.parentElement.style.height = '100%'; el.style.height = '100%'; }
+    }
+    inp.replaceWith(el);
+  });
+}
+
 async function exportPdf() {
   const btn = document.getElementById('exportBtn'), label = btn.textContent;
   btn.disabled = true;
@@ -1915,7 +1944,7 @@ async function exportPdf() {
   try {
     await loadPdfLibs();
     document.body.classList.add('exporting');   // true size, no screen padding
-    const canvas = await html2canvas(sheet, { scale: PDF_SCALE, backgroundColor: '#ffffff', logging: false, onclone: inlineSvgLook });
+    const canvas = await html2canvas(sheet, { scale: PDF_SCALE, backgroundColor: '#ffffff', logging: false, onclone: doc => { inlineSvgLook(doc); flatInputs(doc); } });
     // html2canvas can't draw the full-column X over missing teeth; draw it onto the image here.
     const ctx = canvas.getContext('2d'), sr = sheet.getBoundingClientRect(), k = canvas.width / sr.width;
     ctx.setTransform(1, 0, 0, 1, 0, 0);   // html2canvas leaves its scale applied
