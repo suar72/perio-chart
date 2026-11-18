@@ -196,7 +196,7 @@
   tr.img .fixture { fill: #e2e2e6; }
   tr.img .abutment { fill: #f1f1f3; }
   tr.img .thread { fill: none; stroke: #8a8a90; stroke-width: .5; }
-  tr.img .guide { stroke: #a8a8a8; stroke-width: .5; stroke-dasharray: 2 2; vector-effect: non-scaling-stroke; }
+  tr.img .pic { background: no-repeat 0 0 / 100% 100%; }   /* 2 mm guide lines (guideImage) */
   tr.img td.missing .tooth-svg { opacity: .3; }
   tr.teeth td { height: 5.6mm; background: #f4f4f4; text-align: center; font-weight: 800; font-size: 12px;
     cursor: pointer; user-select: none; }
@@ -1000,14 +1000,26 @@ function toothSVG(t, roots, view, implant = implants.has(t)) {
   const crown = parts.find(([cls]) => cls === 'crown')[1];
   const paths = `<clipPath id="${id}"><path d="${crown}"/></clipPath>` +
     parts.map(([cls, d]) => `<path class="${cls}" d="${d}"${['detail', 'landmark'].includes(cls) ? ` clip-path="url(#${id})"` : ''}/>`).join('');
-  // dashed lines every 2 mm from the CEJ toward the apex, for sketching the gingival margin / pocket
-  const guides = [2, 4, 6, 8, 10, 12, 14].map(mm => {
-    const y = roots === 'down' ? VB_H - (Y0 - mm) : Y0 - mm;
-    return `<line class="guide" x1="0" x2="100" y1="${y}" y2="${y}"/>`;
-  }).join('');
-  return `<div class="pic"><svg viewBox="0 0 100 ${VB_H}" preserveAspectRatio="none">${guides}</svg>` +
+  // dashed lines every 2 mm from the CEJ toward the apex (sketching the gingival margin / pocket): see guideImage
+  return `<div class="pic g-${roots === 'down' ? 'down' : 'up'}">` +
          `<svg class="tooth-svg" viewBox="0 0 ${VB_W} ${VB_H}" preserveAspectRatio="xMidYMid meet"><g transform="${tf}">${paths}</g></svg></div>`;
 }
+
+// The 2 mm guide lines behind each drawing are one small image shared by every tooth. Drawn as SVG dashes
+// they made the printed page too complex for some printers (each dash became its own shape: ~5,000 of them).
+function guideImage(roots) {
+  const S = 8, w = 62 * S, h = 51 * S, c = document.createElement('canvas');   // a typical drawing box, 8x
+  c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  g.strokeStyle = '#a8a8a8'; g.lineWidth = .5 * S; g.setLineDash([2 * S, 2 * S]);
+  for (const mm of [2, 4, 6, 8, 10, 12, 14]) {
+    const y = (roots === 'down' ? VB_H - (Y0 - mm) : Y0 - mm) / VB_H * h;
+    g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
+  }
+  return c.toDataURL('image/png');
+}
+document.head.insertAdjacentHTML('beforeend',
+  `<style>tr.img .pic.g-up { background-image: url(${guideImage('up')}); } tr.img .pic.g-down { background-image: url(${guideImage('down')}); }</style>`);
 
 /* ---------- table ---------- */
 const missing = new Set(), implants = new Set();
