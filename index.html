@@ -1338,7 +1338,6 @@ function clearAll() {
   document.querySelectorAll('.sheet input').forEach(i => {
     if (i.type === 'checkbox') i.checked = false; else i.value = '';
   });
-  setDefaults();
   setMarkers(true);
   build();
   try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}   // the saved copy goes too
@@ -1369,12 +1368,6 @@ function fitSheet() {
   document.documentElement.style.setProperty('--screen-zoom', (room < 700 ? room / widthPx : fit).toFixed(4));   // phones: fit the width
 }
 window.addEventListener('resize', fitSheet);
-
-// Editable default: today's date (DD/MM/YYYY).
-function setDefaults() {
-  const d = new Date(), pad = v => String(v).padStart(2, '0');
-  document.getElementById('fDate').value = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
-}
 
 // Scan markers and the scan instructions; hidden for a clean printout or PDF of a finished chart.
 const markersShown = () => !document.querySelector('.sheet').classList.contains('no-markers');
@@ -1842,7 +1835,6 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 
-setDefaults();
 // Rows: ?rows=<code> (used by the build tools) or what this device chose last time; classic by default.
 let startCode = +(new URLSearchParams(location.search).get('rows') ?? NaN);
 if (isNaN(startCode)) { try { startCode = +(localStorage.getItem('perio-rows') || 0); } catch (e) { startCode = 0; } }
@@ -1874,9 +1866,9 @@ function collectDraft() {
       x: parseFloat(el.style.left), y: parseFloat(el.style.top), w: parseFloat(el.style.width), h: parseFloat(el.style.height) })),
   };
 }
-// Anything worth restoring (today's date alone isn't).
+// Anything worth restoring.
 const draftHasData = d => Object.keys(d.values).length || d.missing.length || d.implants?.length || d.ink.length ||
-  Object.entries(d.header).some(([k, v]) => v && k !== 'Date') || Object.values(d.checks).some(Boolean) ||
+  Object.values(d.header).some(Boolean) || Object.values(d.checks).some(Boolean) ||
   Object.values(d.lines).flat().some(Boolean) || Object.values(d.factorDetails || {}).some(Boolean);
 
 function saveDraftNow() {
