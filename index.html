@@ -1259,6 +1259,31 @@ document.addEventListener('keydown', e => {
   all[all.indexOf(e.target) + (e.shiftKey ? -1 : 1)]?.focus();
 });
 
+// Arrow keys move between boxes like a spreadsheet: left / right along the row, up / down to the nearest box
+// above or below (across rows and jaws). CAL (calculated) and missing teeth are skipped; the value is selected,
+// so typing replaces it.
+document.addEventListener('keydown', e => {
+  const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+  if (!dir || e.shiftKey || e.altKey || e.metaKey || e.ctrlKey || !e.target.matches('table.chart input')) return;
+  const boxes = [...document.querySelectorAll('table.chart td:not(.missing) input:not([data-k=cal])')];
+  const at = i => { const r = i.getBoundingClientRect(), c = i.closest('td').getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, h: r.height, l: c.left, r: c.right }; };
+  const me = at(e.target);
+  let best = null, score = Infinity;
+  for (const b of boxes) {
+    if (b === e.target) continue;
+    const p = at(b), dx = p.x - me.x, dy = p.y - me.y;
+    // only boxes on that side; same row first for left/right, nearest row first for up/down
+    const ahead = dir[0] ? dx * dir[0] > 1 && Math.abs(dy) < me.h / 2 : dy * dir[1] > me.h / 3;
+    if (!ahead) continue;
+    // up / down stay in the same tooth column (rows without a box there, like furcation on a premolar, are passed)
+    const d = dir[0] ? Math.abs(dx) : (p.l <= me.x && me.x <= p.r ? 0 : 1e9) + Math.abs(dy) * 1000 + Math.abs(dx);
+    if (d < score) { score = d; best = b; }
+  }
+  e.preventDefault();
+  if (best) { best.focus(); best.select(); }
+});
+
 // Tap a tooth number or drawing: a small menu to mark it present, missing or an implant.
 const toothState = t => missing.has(t) ? 'missing' : implants.has(t) ? 'implant' : 'present';
 function setToothState(t, state) {
