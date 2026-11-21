@@ -97,6 +97,31 @@
   .switch input:checked + .track { background: #30c759; }
   .switch input:checked + .track::after { transform: translateX(15px); }
   .menuwrap { position: relative; }
+  .more-btn { display: none; }
+  .appbar-in > #scanBtn { margin-left: -10px; }   /* sits with the actions on wide screens */
+  @media (max-width: 700px) {
+    .appbar-in { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; padding-top: 8px; padding-bottom: 8px; }
+    .app-title { grid-area: 1 / 1; }
+    .appbar-in > #scanBtn { grid-area: 1 / 2; margin-left: 0; }
+    .more-btn { grid-area: 1 / 3; }
+    .app-title { font-size: 16px; }
+    .more-btn { display: inline-flex; width: 36px; padding: 0; justify-content: center; }
+    .more-btn svg { width: 18px; height: 18px; }
+    .appbar .group.controls { grid-area: 2 / 1 / 3 / -1; gap: 6px; }
+    .appbar .group.controls .seg button { padding: 0 9px; font-size: 12px; }
+    .appbar .group.controls .btn { padding: 0 10px; }
+    .appbar .group.actions { display: none; position: absolute; top: calc(100% + 6px); right: 12px; width: min(300px, calc(100vw - 24px));
+      flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 2px; padding: 6px; border-radius: 14px;
+      background: var(--ui-surface); box-shadow: 0 0 0 .5px var(--ui-sep), 0 12px 32px rgba(0, 0, 0, .16);
+      max-height: calc(100dvh - 120px); overflow-y: auto; transform-origin: top right; animation: pop .18s cubic-bezier(.2, .8, .2, 1); }
+    .appbar.more-open .group.actions { display: flex; }
+    .appbar .group.actions > .btn, .appbar .group.actions > .menuwrap > .btn { width: 100%; height: 42px; justify-content: flex-start; padding: 0 12px; background: transparent; font-size: 15px; font-weight: 400; color: var(--ui-text); }
+    .appbar .group.actions > .btn:hover, .appbar .group.actions > .menuwrap > .btn:hover { background: var(--ui-fill-2); }
+    .appbar .group.actions .btn.plain { color: #ff3b30; }   /* Clear wipes the chart */
+    .appbar .group.actions .switch { justify-content: space-between; flex-direction: row-reverse; padding: 9px 12px; font-size: 15px; }
+    .appbar .group.actions .popover.xl { position: static; width: auto; margin: 2px 4px 6px; box-shadow: none; background: var(--ui-fill-2); animation: none; }
+    .page-hint { font-size: 12px; margin-top: 10px; }
+  }
   .badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--ui-accent); color: #fff; font-size: 11px; font-weight: 700; }
   .popover { position: absolute; top: calc(100% + 8px); left: 0; z-index: 15; width: min(290px, calc(100vw - 24px)); padding: 10px 6px 8px; border-radius: 14px;
     overflow-y: auto; overscroll-behavior: contain;
@@ -123,10 +148,6 @@
   .tooth-menu button:hover, .tooth-menu button:focus-visible { background: var(--ui-fill-2); outline: none; }
   .tooth-menu button[aria-checked=true]::before { content: "✓"; position: absolute; left: 11px; color: var(--ui-accent); font-weight: 700; }
   @media print { .tooth-menu { display: none !important; } }
-  .notice { max-width: 1240px; margin: 0 auto; padding: 0 16px 10px; display: flex; }
-  .notice > div { display: inline-flex; align-items: center; gap: 10px; padding: 6px 6px 6px 12px; border-radius: 10px;
-    background: var(--ui-amber-bg); color: var(--ui-amber); font: 500 13px/1.3 var(--ui-font); }
-  .notice .btn { height: 26px; font-size: 12.5px; background: var(--ui-surface); color: var(--ui-amber); }
   .page-hint { max-width: 1240px; margin: 14px auto 0; padding: 0 16px; text-align: center; font: 12.5px/1.4 var(--ui-font); color: var(--ui-sub); }
 
   /* ---------- sheet ---------- */
@@ -447,12 +468,21 @@
     font: 14px/1.35 var(--ui-font); color: #fff; background: rgba(30, 30, 32, .88);
     -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); box-shadow: 0 10px 30px rgba(0, 0, 0, .25); animation: rise .3s cubic-bezier(.2, .8, .2, 1); }
   .toast button { background: none; border: 0; color: #64a8ff; font: 600 14px var(--ui-font); cursor: pointer; padding: 0; }
+  /* Toasts float over the page and stack at the bottom, so nothing above them moves. */
+  .toasts { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 30;
+    display: flex; flex-direction: column; align-items: center; gap: 8px; width: max-content; max-width: calc(100vw - 32px); pointer-events: none; }
+  .toasts .toast { position: static; transform: none; max-width: 100%; pointer-events: auto; }
+  .toast[hidden] { display: none; }
+  .toast.warn::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: #ffb340; }
+  .toast.warn { gap: 12px; }
+  .toast.warn #furcConvert { color: #ffb340; }
+  .toast .toast-x { color: rgba(255, 255, 255, .55); font-size: 13px; padding: 2px 2px 2px 4px; }
   @media (prefers-reduced-transparency: reduce) {
     .appbar, .scan-nav, .pill { background: var(--ui-surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
   }
 
   @media print {
-    .scan, .toast, .pill, .page-hint, .appbar { display: none !important; }
+    .scan, .toast, .toasts, .pill, .page-hint, .appbar { display: none !important; }
     .boxes input.numwarn, .boxes input.badval { box-shadow: none; color: inherit; }
     html, body { background: #fff; }
     .sheet { margin: 0; box-shadow: none; }
@@ -468,7 +498,7 @@
 <header class="appbar">
   <div class="appbar-in">
     <h1 class="app-title">Periodontal Chart</h1>
-    <div class="group">
+    <div class="group controls">
       <div class="seg" data-for="template" role="group" aria-label="Chart template" title="Simplified: PD, furcation, mobility (scannable). Full: KG, plaque, BOP, CEJ-GM, PD, CAL, matching the Excel chart.">
         <button data-v="simple">Simplified</button><button data-v="full">Full</button>
       </div>
@@ -489,11 +519,11 @@
           <p class="pop-note extra-opt" id="rowsNote">Up to two extra rows fit the usual page (three with Diagnosis &amp; plan hidden); more turn it portrait. Hiding Diagnosis &amp; plan gives the chart taller boxes.</p>
         </div>
       </div>
+    </div>
+    <div class="group actions">
       <label class="switch" title="The six black squares and scan instructions. Needed only on sheets you will scan.">
         <input type="checkbox" id="showMarkers" checked onchange="setMarkers(this.checked)"><span class="track"></span>Scan markers
       </label>
-    </div>
-    <div class="group">
       <button class="btn plain" onclick="clearAll()">Clear</button>
       <button class="btn" onclick="window.print()">Print</button>
       <button class="btn" id="exportBtn" onclick="exportPdf()">Export PDF</button>
@@ -510,10 +540,10 @@
           <p class="xl-status" id="xlStatus" role="status"></p>
         </div>
       </div>
-      <button class="btn primary" id="scanBtn" onclick="Scanner.open(true)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.4-2h5.8l1.4 2h2.2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.4"/></svg>Scan sheet</button>
     </div>
+    <button class="btn primary" id="scanBtn" onclick="Scanner.open(true)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.4-2h5.8l1.4 2h2.2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.4"/></svg>Scan sheet</button>
+    <button class="btn more-btn" id="moreBtn" aria-label="More" aria-haspopup="true" aria-expanded="false" onclick="toggleMore()"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg></button>
   </div>
-  <div class="notice" id="valueWarn" role="status" hidden><div><span id="valueWarnText"></span><button class="btn" id="furcConvert" onclick="convertFurc()">Convert to I–III</button></div></div>
 </header>
 <select id="template" onchange="applyOpts({ tpl: this.value })" hidden aria-hidden="true">
   <option value="simple">Simplified</option>
@@ -681,7 +711,10 @@
  </div>
  <button class="pill" id="nextCheck" hidden><span class="dot"></span>Review next <b id="lowCount"></b></button>
 </div>
-<div class="toast" id="toast" role="status" hidden><span id="toastText"></span><button id="toastClose">Dismiss</button></div>
+<div class="toasts">
+  <div class="toast warn" id="valueWarn" role="status" hidden><span id="valueWarnText"></span><button id="furcConvert" onclick="convertFurc()">Convert to I–III</button><button class="toast-x" onclick="dismissWarn()" aria-label="Hide this warning">✕</button></div>
+  <div class="toast" id="toast" role="status" hidden><span id="toastText"></span><button id="toastClose">Dismiss</button></div>
+</div>
 
 <script>
 const UPPER = [18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28];
@@ -1199,9 +1232,15 @@ function checkValues() {
   if (n.gm) parts.push(`${n.gm} CEJ–GM out of range`);
   if (n.kg) parts.push(`${n.kg} KG over 15 mm`);
   if (n.furc) parts.push(`${n.furc} furcation written as ${n.furc === 1 ? 'a number' : 'numbers'} (use I, II or III)`);
-  document.getElementById('valueWarn').hidden = !parts.length;
-  document.getElementById('valueWarnText').textContent = parts.length ? 'Check: ' + parts.join(' · ') : '';
+  const text = parts.length ? 'Check: ' + parts.join(' · ') : '';
+  document.getElementById('valueWarn').hidden = !text || text === warnDismissed;
+  document.getElementById('valueWarnText').textContent = text;
   document.getElementById('furcConvert').hidden = !n.furc;
+}
+let warnDismissed = '';   // a dismissed warning stays hidden until what it says changes
+function dismissWarn() {
+  warnDismissed = document.getElementById('valueWarnText').textContent;
+  document.getElementById('valueWarn').hidden = true;
 }
 function convertFurc() {
   document.querySelectorAll('table.chart input.numwarn').forEach(i => { i.value = toRoman(i.value); });
@@ -2088,6 +2127,16 @@ function positionRowsMenu() {
   menu.style.top = Math.max(top, Math.min(y, bottom - menu.offsetHeight)) - wrap.top + 'px';
   menu.style.transformOrigin = opensAbove ? 'bottom left' : 'top left';
 }
+
+// Phones: Scan markers, Clear, Print and the exports sit in the "More" (•••) menu.
+function toggleMore(open) {
+  const bar = document.querySelector('.appbar'), show = open ?? !bar.classList.contains('more-open');
+  bar.classList.toggle('more-open', show);
+  document.getElementById('moreBtn').setAttribute('aria-expanded', String(show));
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.group.actions, #moreBtn') || e.target.closest('.group.actions > .btn')) toggleMore(false);
+});
 
 function toggleRowsMenu(open) {
   const menu = document.getElementById('rowsMenu'), show = open ?? menu.hidden;
